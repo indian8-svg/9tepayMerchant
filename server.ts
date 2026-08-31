@@ -5,6 +5,37 @@ import { createServer as createViteServer } from "vite";
 const app = express();
 const PORT = 3000;
 
+// CORS settings for Vercel domains, localhost, and live previews
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    // Allow Vercel domains (*.vercel.app), localhost, Cloud Run, and general origins
+    if (
+      origin.endsWith(".vercel.app") ||
+      origin.includes("localhost") ||
+      origin.includes("127.0.0.1") ||
+      origin.includes("run.app") ||
+      origin.includes("ai.studio") ||
+      origin.includes("google.com")
+    ) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+    } else {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+    }
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Api-Key, X-Secret-Key");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") {
+    return res.status(204).end();
+  }
+  next();
+});
+
 app.use(express.json({ limit: "15mb" }));
 app.use(express.urlencoded({ extended: true, limit: "15mb" }));
 
@@ -1249,4 +1280,10 @@ async function startServer() {
   });
 }
 
-startServer();
+// In standard container / local Node.js environments, start the HTTP listener
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export { app };
+export default app;
