@@ -58,7 +58,6 @@ export interface Order {
   paidAt?: string;
   callbackUrl?: string;
   webhookDelivered?: boolean;
-  verificationMethod?: 'INSTANT_BANK_SYNC' | 'MANUAL_UTR' | 'WEBHOOK_CBS' | 'SIMULATED';
 }
 
 export interface MerchantProfile {

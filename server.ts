@@ -32,7 +32,6 @@ interface OrderItem {
   paidAt?: string;
   callbackUrl?: string;
   webhookDelivered?: boolean;
-  verificationMethod?: string;
 }
 
 interface BankAccountItem {
@@ -69,24 +68,129 @@ interface SecurityEventItem {
 }
 
 let merchantProfile = {
-  businessName: "My Business Gateway",
-  vpa: "yourname@upi",
+  businessName: "9tepay Merchant Services",
+  vpa: "9tepay.business@icici",
   phone: "+91 98765 43210",
-  email: "merchant@mybusiness.com",
-  apiKey: "pi_live_xxxxxxxxxxxxxxxx",
-  apiSecret: "sk_live_xxxxxxxxxxxxxxxx",
-  webhookUrl: "https://yourdomain.com/api/webhook/upi-callback",
-  webhookSecret: "whsec_live_xxxxxxxxxxxx",
+  email: "merchant@9tepay.com",
+  apiKey: "pi_live_9b4e872c019a8f23",
+  apiSecret: "sk_live_65a7d903e14fbc9081",
+  webhookUrl: "https://shop.example.com/api/webhook/upi-callback",
+  webhookSecret: "whsec_live_99a8b7c6d5e4f3a2",
   autoApproveUtr: true,
   settlementRate: 0.0,
-  routingStrategy: "primary_only" as "smart_round_robin" | "primary_only" | "limit_aware" | "manual",
+  routingStrategy: "smart_round_robin" as "smart_round_robin" | "primary_only" | "limit_aware" | "manual",
   requireStrictUtrFormat: true,
   preventDuplicateUtr: true,
 };
 
-let bankAccounts: BankAccountItem[] = [];
+let bankAccounts: BankAccountItem[] = [
+  {
+    id: "bank_icici_01",
+    bankName: "ICICI Bank",
+    accountHolder: "9tepay Merchant Services",
+    accountNumber: "919876543210",
+    ifsc: "ICIC0000102",
+    vpa: "9tepay.business@icici",
+    qrTitle: "Primary Retail Instant QR",
+    qrType: "dynamic_intent",
+    qrColor: "#10b981",
+    isPrimary: true,
+    isActive: true,
+    dailyLimit: 200000,
+    dailyVolume: 4848,
+    totalSettled: 184500,
+    routingWeight: 5,
+    createdAt: "2026-08-01T10:00:00.000Z",
+  },
+  {
+    id: "bank_hdfc_02",
+    bankName: "HDFC Bank",
+    accountHolder: "9tepay Merchant Services",
+    accountNumber: "50100492817263",
+    ifsc: "HDFC0000060",
+    vpa: "9tepay.settle@hdfcbank",
+    qrTitle: "Commercial High-Volume QR",
+    qrType: "dynamic_intent",
+    qrColor: "#3b82f6",
+    isPrimary: false,
+    isActive: true,
+    dailyLimit: 500000,
+    dailyVolume: 0,
+    totalSettled: 92300,
+    routingWeight: 3,
+    createdAt: "2026-08-10T12:00:00.000Z",
+  },
+  {
+    id: "bank_sbi_03",
+    bankName: "State Bank of India",
+    accountHolder: "9tepay Merchant Services",
+    accountNumber: "308492019482",
+    ifsc: "SBIN0000456",
+    vpa: "9tepay.vip@sbi",
+    qrTitle: "VIP High-Ticket Soundbox",
+    qrType: "static_soundbox",
+    qrColor: "#8b5cf6",
+    isPrimary: false,
+    isActive: true,
+    dailyLimit: 1000000,
+    dailyVolume: 0,
+    totalSettled: 412000,
+    routingWeight: 2,
+    createdAt: "2026-08-15T15:30:00.000Z",
+  },
+  {
+    id: "bank_axis_04",
+    bankName: "Axis Bank",
+    accountHolder: "9tepay Merchant Services",
+    accountNumber: "91802938472910",
+    ifsc: "UTIB0000142",
+    vpa: "9tepay.corp@okaxis",
+    qrTitle: "Reserve Backup Gateway",
+    qrType: "custom_branding",
+    qrColor: "#f59e0b",
+    isPrimary: false,
+    isActive: false,
+    dailyLimit: 300000,
+    dailyVolume: 0,
+    totalSettled: 35000,
+    routingWeight: 1,
+    createdAt: "2026-08-20T08:45:00.000Z",
+  },
+];
 
-let securityLogs: SecurityEventItem[] = [];
+let securityLogs: SecurityEventItem[] = [
+  {
+    id: "sec_evt_01",
+    type: "UTR_DUPLICATE_ATTEMPT",
+    severity: "critical",
+    timestamp: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
+    ipAddress: "103.21.244.18",
+    details: "Blocked attempt to reuse already settled UTR #423019827361 on a new order",
+    orderNumber: "ORD-2026-979",
+    utr: "423019827361",
+    status: "BLOCKED",
+  },
+  {
+    id: "sec_evt_02",
+    type: "INVALID_UTR_FORMAT",
+    severity: "medium",
+    timestamp: new Date(Date.now() - 1000 * 60 * 360).toISOString(),
+    ipAddress: "49.36.120.4",
+    details: "Rejected malformed 8-digit UTR input; strictly 12 digits required by NPCI standard",
+    orderNumber: "ORD-2026-977",
+    utr: "12345678",
+    status: "BLOCKED",
+  },
+  {
+    id: "sec_evt_03",
+    type: "RATE_LIMIT_EXCEEDED",
+    severity: "high",
+    timestamp: new Date(Date.now() - 1000 * 60 * 720).toISOString(),
+    ipAddress: "182.74.88.2",
+    details: "IP exceeded rate limit of 60 order creations/minute. Cooldown enforced.",
+    status: "BLOCKED",
+  },
+];
 
 let roundRobinCounter = 0;
 
@@ -98,19 +202,19 @@ function selectRoutedBank(requestedBankId?: string, amount: number = 0): BankAcc
 
   const activeBanks = bankAccounts.filter((b) => b.isActive);
   if (activeBanks.length === 0) {
-    // Fallback to merchant profile VPA if no bank accounts configured yet
+    // Fallback to primary or first
     return bankAccounts[0] || {
-      id: "bank_default",
-      bankName: "Primary Bank",
+      id: "bank_fallback",
+      bankName: "ICICI Bank",
       accountHolder: merchantProfile.businessName,
-      accountNumber: "000000000000",
-      ifsc: "SBIN0000000",
+      accountNumber: "919876543210",
+      ifsc: "ICIC0000102",
       vpa: merchantProfile.vpa,
-      qrTitle: "Primary VPA",
+      qrTitle: "Default VPA",
       qrType: "dynamic_intent",
       isPrimary: true,
       isActive: true,
-      dailyLimit: 1000000,
+      dailyLimit: 500000,
       dailyVolume: 0,
       totalSettled: 0,
       routingWeight: 1,
@@ -152,9 +256,87 @@ function buildUpiUri(vpa: string, name: string, amount: number, orderNo: string,
   return `upi://pay?pa=${vpa.trim()}&pn=${encName}&am=${amount.toFixed(2)}&cu=INR&tn=${encNote}&tr=${encTr}`;
 }
 
-const orders: OrderItem[] = [];
+const orders: OrderItem[] = [
+  {
+    id: "ord_live_89102",
+    orderNumber: "ORD-2026-981",
+    amount: 1499.0,
+    currency: "INR",
+    customerName: "Aarav Sharma",
+    customerEmail: "aarav@example.com",
+    customerPhone: "+91 98230 11223",
+    note: "E-Commerce Purchase #981",
+    merchantVpa: "9tepay.business@icici",
+    merchantName: "9tepay Merchant Services",
+    status: "PAID",
+    utrNumber: "423019827361",
+    upiString: buildUpiUri("9tepay.business@icici", "9tepay Merchant Services", 1499.0, "ORD-2026-981", "E-Commerce Purchase #981"),
+    createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+    expiresAt: new Date(Date.now() + 1000 * 60 * 300).toISOString(),
+    paidAt: new Date(Date.now() - 1000 * 60 * 40).toISOString(),
+    callbackUrl: "https://shop.example.com/success",
+    webhookDelivered: true,
+  },
+  {
+    id: "ord_live_89103",
+    orderNumber: "ORD-2026-982",
+    amount: 499.0,
+    currency: "INR",
+    customerName: "Priya Patel",
+    customerEmail: "priya@example.com",
+    customerPhone: "+91 98760 54321",
+    note: "Monthly Starter Subscription",
+    merchantVpa: "9tepay.business@icici",
+    merchantName: "9tepay Merchant Services",
+    status: "PAID",
+    utrNumber: "423089761234",
+    upiString: buildUpiUri("9tepay.business@icici", "9tepay Merchant Services", 499.0, "ORD-2026-982", "Monthly Starter Subscription"),
+    createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+    expiresAt: new Date(Date.now() + 1000 * 60 * 200).toISOString(),
+    paidAt: new Date(Date.now() - 1000 * 60 * 115).toISOString(),
+    callbackUrl: "https://shop.example.com/success",
+    webhookDelivered: true,
+  },
+  {
+    id: "ord_live_89104",
+    orderNumber: "ORD-2026-983",
+    amount: 2850.0,
+    currency: "INR",
+    customerName: "Vikram Malhotra",
+    customerEmail: "vikram@example.com",
+    customerPhone: "+91 97110 33445",
+    note: "Custom Electronics Kit",
+    merchantVpa: "9tepay.business@icici",
+    merchantName: "9tepay Merchant Services",
+    status: "PENDING",
+    upiString: buildUpiUri("9tepay.business@icici", "9tepay Merchant Services", 2850.0, "ORD-2026-983", "Custom Electronics Kit"),
+    createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+    expiresAt: new Date(Date.now() + 1000 * 60 * 10).toISOString(),
+    callbackUrl: "https://shop.example.com/success",
+    webhookDelivered: false,
+  },
+];
 
-const webhookLogs: any[] = [];
+const webhookLogs: any[] = [
+  {
+    id: "wh_log_01",
+    orderId: "ord_live_89102",
+    timestamp: new Date(Date.now() - 1000 * 60 * 40).toISOString(),
+    status: "DELIVERED",
+    url: merchantProfile.webhookUrl,
+    statusCode: 200,
+    payload: {
+      event: "payment.success",
+      order_id: "ORD-2026-981",
+      amount: 1499.0,
+      currency: "INR",
+      status: "PAID",
+      utr: "423019827361",
+      customer: "Aarav Sharma",
+    },
+    response: '{"success":true,"message":"Order updated"}',
+  },
+];
 
 // --- Admin & Multi-Merchant State ---
 interface MerchantListItem {
@@ -173,18 +355,79 @@ interface MerchantListItem {
   createdAt: string;
 }
 
-let merchantsList: MerchantListItem[] = [];
+let merchantsList: MerchantListItem[] = [
+  {
+    id: "merch_live_01",
+    businessName: "9tepay Merchant Services",
+    ownerName: "Abhay Sharma",
+    email: "merchant@9tepay.com",
+    phone: "+91 98765 43210",
+    vpa: "9tepay.business@icici",
+    bankAccount: "919876543210",
+    ifsc: "ICIC0000102",
+    commissionRate: 0.0,
+    status: "active",
+    totalVolume: 4848.0,
+    totalOrders: 3,
+    createdAt: "2026-08-01T10:00:00.000Z",
+  },
+  {
+    id: "merch_live_02",
+    businessName: "PayIndia QuickPay Global",
+    ownerName: "Rajesh Singhania",
+    email: "support@payindia.in",
+    phone: "+91 98123 45678",
+    vpa: "payindia.settle@hdfcbank",
+    bankAccount: "50100234567890",
+    ifsc: "HDFC0000060",
+    commissionRate: 0.8,
+    status: "active",
+    totalVolume: 34200.0,
+    totalOrders: 18,
+    createdAt: "2026-08-10T12:30:00.000Z",
+  },
+  {
+    id: "merch_live_03",
+    businessName: "Apex Tech Digital Services",
+    ownerName: "Neha Kapoor",
+    email: "neha@apextech.io",
+    phone: "+91 97788 11223",
+    vpa: "apextech@okaxis",
+    bankAccount: "91800293847291",
+    ifsc: "UTIB0000142",
+    commissionRate: 1.2,
+    status: "pending_kyc",
+    totalVolume: 0.0,
+    totalOrders: 0,
+    createdAt: "2026-08-25T09:15:00.000Z",
+  },
+  {
+    id: "merch_live_04",
+    businessName: "FastCart Retail Goods",
+    ownerName: "Kunal Mehra",
+    email: "billing@fastcart.shop",
+    phone: "+91 99887 76655",
+    vpa: "fastcart.pay@sbi",
+    bankAccount: "304958672019",
+    ifsc: "SBIN0000456",
+    commissionRate: 1.5,
+    status: "suspended",
+    totalVolume: 15400.0,
+    totalOrders: 9,
+    createdAt: "2026-07-15T14:40:00.000Z",
+  },
+];
 
 let currentUser = {
-  id: "usr_merchant_new",
-  name: "My Business",
-  email: "merchant@mybusiness.com",
+  id: "usr_merchant_01",
+  name: "Abhay Sharma",
+  email: "merchant@9tepay.com",
   phone: "+91 98765 43210",
   role: "merchant" as "merchant" | "admin",
-  businessName: "My Business Gateway",
-  vpa: "yourname@upi",
+  businessName: "9tepay Merchant Services",
+  vpa: "9tepay.business@icici",
   status: "active" as "active" | "suspended" | "pending_kyc",
-  createdAt: new Date().toISOString(),
+  createdAt: "2026-08-01T10:00:00.000Z",
 };
 
 // --- Auth Routes (/auth/login.php & /auth/register.php) ---
@@ -670,85 +913,6 @@ app.get("/api/orders/:id", (req, res) => {
   res.json(order);
 });
 
-// Instant Bank Auto-Verification without manual UTR submission
-app.post("/api/orders/:id/auto-verify", (req, res) => {
-  const { id } = req.params;
-  const { forceFail } = req.body;
-  const order = orders.find((o) => o.id === id || o.orderNumber === id);
-
-  if (!order) {
-    return res.status(404).json({ error: "Order not found" });
-  }
-
-  if (order.status === "PAID") {
-    return res.json({
-      success: true,
-      message: "Order already confirmed and settled",
-      order,
-      utr: order.utrNumber,
-      verificationMethod: order.verificationMethod || "INSTANT_BANK_SYNC",
-    });
-  }
-
-  // If forceFail is requested (e.g. testing fallback mechanism)
-  if (forceFail) {
-    return res.status(422).json({
-      success: false,
-      error: "Payment not yet recorded on bank ledger. Please complete the transfer in your UPI app, or submit your 12-digit UTR manually below.",
-      fallbackToUtr: true,
-    });
-  }
-
-  // Auto-generate authentic 12-digit Core Banking Solution (CBS) UTR
-  const autoCbsUtr = `423${Math.floor(100000000 + Math.random() * 900000000)}`;
-
-  order.status = "PAID";
-  order.utrNumber = autoCbsUtr;
-  order.paidAt = new Date().toISOString();
-  order.webhookDelivered = true;
-  order.verificationMethod = "INSTANT_BANK_SYNC";
-
-  // Update routed bank's daily volume and total settled stats
-  const targetBank = bankAccounts.find((b) => b.id === order.bankAccountId || b.vpa === order.merchantVpa);
-  if (targetBank) {
-    targetBank.dailyVolume += order.amount;
-    targetBank.totalSettled += order.amount;
-  }
-
-  // Webhook log entry
-  const newLog = {
-    id: `wh_log_${Date.now().toString().slice(-6)}`,
-    orderId: order.id,
-    timestamp: new Date().toISOString(),
-    status: "DELIVERED",
-    url: merchantProfile.webhookUrl,
-    statusCode: 200,
-    payload: {
-      event: "payment.success",
-      order_id: order.orderNumber,
-      amount: order.amount,
-      currency: "INR",
-      status: "PAID",
-      utr: autoCbsUtr,
-      verification_method: "INSTANT_BANK_SYNC",
-      customer: order.customerName,
-      timestamp: order.paidAt,
-      settled_bank: targetBank?.bankName || "ICICI Bank",
-      settled_vpa: order.merchantVpa,
-    },
-    response: '{"status":"OK","received":true,"signature_valid":true}',
-  };
-  webhookLogs.unshift(newLog);
-
-  res.json({
-    success: true,
-    message: "Payment successfully verified via real-time bank ledger stream",
-    order,
-    utr: autoCbsUtr,
-    verificationMethod: "INSTANT_BANK_SYNC",
-  });
-});
-
 // Verify / Confirm Payment (with Anti-Fraud Duplicate UTR and Format Guard)
 app.post("/api/orders/:id/verify", (req, res) => {
   const { id } = req.params;
@@ -765,7 +929,6 @@ app.post("/api/orders/:id/verify", (req, res) => {
       message: "Order already verified and settled",
       order,
       utr: order.utrNumber,
-      verificationMethod: order.verificationMethod || "MANUAL_UTR",
     });
   }
 
@@ -837,7 +1000,6 @@ app.post("/api/orders/:id/verify", (req, res) => {
   order.utrNumber = finalUtr;
   order.paidAt = new Date().toISOString();
   order.webhookDelivered = true;
-  order.verificationMethod = "MANUAL_UTR";
 
   // Update routed bank's daily volume and total settled stats
   const targetBank = bankAccounts.find((b) => b.id === order.bankAccountId || b.vpa === order.merchantVpa);
