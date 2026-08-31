@@ -1,0 +1,6 @@
+{
+  "name": "9tepay Merchant Gateway",
+  "description": "9tepay Merchant Gateway - UPI payment gateway with merchant dashboard, dynamic QR, one-click mobile deeplink intents (GPay, PhonePe, Paytm, BHIM), and developer REST APIs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,978 @@
+import React, { useState } from 'react';
+import {
+  DollarSign,
+  TrendingUp,
+  CreditCard,
+  PlusCircle,
+  Key,
+  Webhook,
+  Settings,
+  ExternalLink,
+  Copy,
+  Check,
+  RefreshCw,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Send,
+  Building2,
+  Sliders,
+  PieChart as PieChartIcon,
+  BarChart3,
+  XCircle,
+  Radio,
+  QrCode,
+  Smartphone,
+  ShieldCheck,
+  ShieldAlert,
+} from 'lucide-react';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from 'recharts';
+import { Order, MerchantProfile, WebhookLog, BankAccountQR, BankRoutingStrategy, SecurityEvent } from '../types';
+import { formatCurrency } from '../utils/upi';
+import { BankAccountsManager } from './BankAccountsManager';
+import { SecurityCenterPanel } from './SecurityCenterPanel';
+
+interface MerchantDashboardProps {
+  orders: Order[];
+  profile: MerchantProfile;
+  webhookLogs: WebhookLog[];
+  bankAccounts?: BankAccountQR[];
+  onAddBank?: (bank: Partial<BankAccountQR>) => Promise<void>;
+  onUpdateBank?: (id: string, bank: Partial<BankAccountQR>) => Promise<void>;
+  onDeleteBank?: (id: string) => Promise<void>;
+  onSetPrimary?: (id: string) => Promise<void>;
+  onToggleActive?: (id: string) => Promise<void>;
+  routingStrategy?: BankRoutingStrategy;
+  onUpdateRoutingStrategy?: (strategy: BankRoutingStrategy, strictUtr: boolean, preventDup: boolean) => Promise<void>;
+  securityEvents?: SecurityEvent[];
+  onTriggerSecurityProbe?: (type: string, orderNumber: string, utr: string) => Promise<void>;
+  onOpenCheckout: (order: Order) => void;
+  onCreateOrder: (newOrderData: any) => Promise<Order>;
+  onUpdateProfile: (updatedProfile: Partial<MerchantProfile>) => Promise<void>;
+  onRegenerateKeys: () => Promise<void>;
+  onTriggerTestWebhook: () => Promise<void>;
+}
+
+export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
+  orders,
+  profile,
+  webhookLogs,
+  bankAccounts = [],
+  onAddBank = async () => {},
+  onUpdateBank = async () => {},
+  onDeleteBank = async () => {},
+  onSetPrimary = async () => {},
+  onToggleActive = async () => {},
+  routingStrategy = 'smart_round_robin',
+  onUpdateRoutingStrategy = async () => {},
+  securityEvents = [],
+  onTriggerSecurityProbe = async () => {},
+  onOpenCheckout,
+  onCreateOrder,
+  onUpdateProfile,
+  onRegenerateKeys,
+  onTriggerTestWebhook,
+}) => {
+  const [activeTab, setActiveTab] = useState<'orders' | 'banks' | 'security' | 'analytics' | 'api' | 'webhooks' | 'settings'>('orders');
+  const [orderFilter, setOrderFilter] = useState<'ALL' | 'PAID' | 'PENDING' | 'EXPIRED'>('ALL');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [copiedSecret, setCopiedSecret] = useState(false);
+  const [copiedLinkIndex, setCopiedLinkIndex] = useState<string | null>(null);
+
+  // Form states for creating an order
+  const [amount, setAmount] = useState('1499.00');
+  const [customerName, setCustomerName] = useState('Aarav Sharma');
+  const [customerEmail, setCustomerEmail] = useState('aarav@example.com');
+  const [customerPhone, setCustomerPhone] = useState('+91 98230 11223');
+  const [note, setNote] = useState('E-Commerce Order Purchase');
+  const [orderId, setOrderId] = useState(`ORD-${Math.floor(1000 + Math.random() * 9000)}`);
+  const [selectedBankId, setSelectedBankId] = useState<string>('');
+
+  // Settings form states
+  const [editBusinessName, setEditBusinessName] = useState(profile.businessName);
+  const [editVpa, setEditVpa] = useState(profile.vpa);
+  const [editWebhookUrl, setEditWebhookUrl] = useState(profile.webhookUrl);
+  const [editAutoApprove, setEditAutoApprove] = useState(profile.autoApproveUtr);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
+
+  // Computations
+  const paidOrders = orders.filter((o) => o.status === 'PAID');
+  const pendingOrders = orders.filter((o) => o.status === 'PENDING');
+  const expiredOrders = orders.filter((o) => o.status === 'EXPIRED');
+  const totalVolume = paidOrders.reduce((acc, curr) => acc + curr.amount, 0);
+  const todayVolume = paidOrders.slice(0, 4).reduce((acc, curr) => acc + curr.amount, 0);
+  const successRate = orders.length ? Math.round((paidOrders.length / orders.length) * 100) : 100;
+  const avgTicketSize = paidOrders.length ? Math.round(totalVolume / paidOrders.length) : 0;
+  const activeBanksCount = bankAccounts.filter((b) => b.isActive).length;
+
+  const filteredOrders = orders.filter((o) => {
+    if (orderFilter === 'ALL') return true;
+    return o.status === orderFilter;
+  });
+
+  // Chart data
+  const volumeTrendData = [
+    { day: 'Mon', volume: 1850, txs: 3 },
+    { day: 'Tue', volume: 3200, txs: 5 },
+    { day: 'Wed', volume: 2450, txs: 4 },
+    { day: 'Thu', volume: 4800, txs: 7 },
+    { day: 'Fri', volume: 3900, txs: 6 },
+    { day: 'Sat', volume: 6200, txs: 9 },
+    { day: 'Sun (Today)', volume: totalVolume > 0 ? totalVolume : 4848, txs: orders.length },
+  ];
+
+  const upiAppShareData = [
+    { name: 'Google Pay', value: 42, color: '#3b82f6' },
+    { name: 'PhonePe', value: 35, color: '#8b5cf6' },
+    { name: 'Paytm UPI', value: 13, color: '#06b6d4' },
+    { name: 'BHIM NPCI', value: 6, color: '#10b981' },
+    { name: 'CRED / Navi', value: 4, color: '#f59e0b' },
+  ];
+
+  const handleCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!amount || isNaN(Number(amount))) return;
+    setIsCreating(true);
+    try {
+      const created = await onCreateOrder({
+        amount: Number(amount),
+        orderId,
+        customerName,
+        customerEmail,
+        customerPhone,
+        note,
+        bankAccountId: selectedBankId || undefined,
+      });
+      setShowCreateModal(false);
+      setOrderId(`ORD-${Math.floor(1000 + Math.random() * 9000)}`);
+      onOpenCheckout(created);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingSettings(true);
+    try {
+      await onUpdateProfile({
+        businessName: editBusinessName,
+        vpa: editVpa,
+        webhookUrl: editWebhookUrl,
+        autoApproveUtr: editAutoApprove,
+      });
+      setSaveSuccessMsg('Merchant profile & settlement VPA updated successfully.');
+      setTimeout(() => setSaveSuccessMsg(''), 3000);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const handleCancelOrder = async (orderIdToCancel: string) => {
+    try {
+      await fetch(`/api/orders/${orderIdToCancel}/cancel`, { method: 'POST' });
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const copyText = (text: string, setter: (val: boolean) => void) => {
+    navigator.clipboard.writeText(text);
+    setter(true);
+    setTimeout(() => setter(false), 2000);
+  };
+
+  const copyOrderLink = (id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedLinkIndex(id);
+    setTimeout(() => setCopiedLinkIndex(null), 2000);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Top Welcome & KPI Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Settled Volume */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4.5 shadow-lg relative overflow-hidden">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span className="font-semibold uppercase tracking-wider">Total Volume Settled</span>
+            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-white mt-2">
+            {formatCurrency(totalVolume)}
+          </div>
+          <div className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1 font-medium font-mono">
+            <span>Direct to VPA: {profile.vpa}</span>
+          </div>
+        </div>
+
+        {/* Today's Transactions */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4.5 shadow-lg">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span className="font-semibold uppercase tracking-wider">Today's Inflow</span>
+            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
+              <DollarSign className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-white mt-2">
+            {formatCurrency(todayVolume)}
+          </div>
+          <div className="text-[11px] text-slate-400 mt-1 font-mono">
+            <span>{paidOrders.length} Paid &bull; Avg ₹{avgTicketSize}</span>
+          </div>
+        </div>
+
+        {/* Bank VPAs & Fleet */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4.5 shadow-lg">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span className="font-semibold uppercase tracking-wider">Bank VPAs &amp; QRs</span>
+            <div className="p-2 rounded-lg bg-teal-500/10 text-teal-400">
+              <Building2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-white mt-2 flex items-center gap-2">
+            <span>{activeBanksCount} Active</span>
+            <span className="text-xs text-slate-400 font-normal">/ {bankAccounts.length}</span>
+          </div>
+          <div className="text-[11px] text-teal-400 mt-1 flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3" />
+            <span>Load Balancing: {routingStrategy === 'smart_round_robin' ? 'Round-Robin' : 'Capacity'}</span>
+          </div>
+        </div>
+
+        {/* Active VPA / Quick Action */}
+        <div className="bg-gradient-to-br from-emerald-950/40 to-slate-900 border border-emerald-500/30 rounded-2xl p-4.5 shadow-lg flex flex-col justify-between">
+          <div>
+            <div className="text-[11px] text-emerald-400 font-bold uppercase tracking-wider">
+              Primary Settlement VPA
+            </div>
+            <div className="text-xs font-mono text-slate-200 font-bold truncate mt-1">
+              {profile.vpa}
+            </div>
+          </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="mt-2 w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-950/60 cursor-pointer"
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            <span>Create Payment Link</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Subnavigation Menu */}
+      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            onClick={() => setActiveTab('orders')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'orders'
+                ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Orders Ledger ({orders.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('banks')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'banks'
+                ? 'bg-slate-800 text-emerald-400 border border-emerald-500/30 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Building2 className="w-3.5 h-3.5" />
+            <span>Bank Accounts &amp; QRs ({bankAccounts.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('security')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'security'
+                ? 'bg-slate-800 text-cyan-400 border border-cyan-500/30 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Security &amp; Anti-Fraud</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'analytics'
+                ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>Analytics &amp; Trends</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('api')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'api'
+                ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Key className="w-3.5 h-3.5" />
+            <span>API Credentials</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('webhooks')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'webhooks'
+                ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Webhook className="w-3.5 h-3.5" />
+            <span>Webhooks ({webhookLogs.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'settings'
+                ? 'bg-slate-800 text-white border border-slate-700 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Settings className="w-3.5 h-3.5" />
+            <span>VPA Settings</span>
+          </button>
+        </div>
+
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="hidden sm:flex items-center gap-1.5 bg-emerald-600/90 hover:bg-emerald-500 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl transition-colors cursor-pointer shadow-sm"
+        >
+          <PlusCircle className="w-3.5 h-3.5" />
+          <span>New Payment</span>
+        </button>
+      </div>
+
+      {/* TAB 2: Multiple Bank Accounts & QR Fleet */}
+      {activeTab === 'banks' && (
+        <BankAccountsManager
+          bankAccounts={bankAccounts}
+          onAddBank={onAddBank}
+          onUpdateBank={onUpdateBank}
+          onDeleteBank={onDeleteBank}
+          onSetPrimary={onSetPrimary}
+          onToggleActive={onToggleActive}
+          routingStrategy={routingStrategy}
+          onUpdateRoutingStrategy={onUpdateRoutingStrategy}
+          requireStrictUtr={profile.requireStrictUtrFormat}
+          preventDuplicateUtr={profile.preventDuplicateUtr}
+        />
+      )}
+
+      {/* TAB 3: Security & Anti-Fraud Center */}
+      {activeTab === 'security' && (
+        <SecurityCenterPanel
+          securityEvents={securityEvents}
+          onTriggerSecurityProbe={onTriggerSecurityProbe}
+          apiKey={profile.apiKey}
+          apiSecret={profile.apiSecret}
+          webhookSecret={profile.webhookSecret}
+        />
+      )}
+
+      {/* TAB 1: Orders Ledger */}
+      {activeTab === 'orders' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+            <div>
+              <h3 className="text-sm font-bold text-white">Live Payment Intent Ledger</h3>
+              <p className="text-xs text-slate-400">
+                Generated orders, intent links, and settlement verification statuses
+              </p>
+            </div>
+
+            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+              <button
+                onClick={() => setOrderFilter('ALL')}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+                  orderFilter === 'ALL' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                All ({orders.length})
+              </button>
+              <button
+                onClick={() => setOrderFilter('PAID')}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+                  orderFilter === 'PAID' ? 'bg-emerald-500/20 text-emerald-300' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Paid ({paidOrders.length})
+              </button>
+              <button
+                onClick={() => setOrderFilter('PENDING')}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+                  orderFilter === 'PENDING' ? 'bg-amber-500/20 text-amber-300' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Pending ({pendingOrders.length})
+              </button>
+              <button
+                onClick={() => setOrderFilter('EXPIRED')}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+                  orderFilter === 'EXPIRED' ? 'bg-rose-500/20 text-rose-300' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Expired ({expiredOrders.length})
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800 text-slate-400 uppercase tracking-wider text-[10px]">
+                  <th className="py-2.5 px-3">Order ID / Ref</th>
+                  <th className="py-2.5 px-3">Customer</th>
+                  <th className="py-2.5 px-3">Amount</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3">Bank UTR</th>
+                  <th className="py-2.5 px-3">Date</th>
+                  <th className="py-2.5 px-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 font-sans">
+                {filteredOrders.map((order) => (
+                  <tr key={order.id} className="hover:bg-slate-800/40 transition-colors">
+                    <td className="py-3 px-3">
+                      <div className="font-bold text-white font-mono">{order.orderNumber}</div>
+                      <div className="text-[10px] text-slate-500 font-mono">{order.id}</div>
+                    </td>
+
+                    <td className="py-3 px-3">
+                      <div className="font-medium text-slate-200">{order.customerName}</div>
+                      <div className="text-[11px] text-slate-400 truncate max-w-[150px]">{order.note || '-'}</div>
+                    </td>
+
+                    <td className="py-3 px-3 font-bold text-white font-mono">
+                      {formatCurrency(order.amount)}
+                    </td>
+
+                    <td className="py-3 px-3">
+                      {order.status === 'PAID' && (
+                        <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Paid</span>
+                        </span>
+                      )}
+                      {order.status === 'PENDING' && (
+                        <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                          <Clock className="w-3 h-3 animate-spin" />
+                          <span>Pending</span>
+                        </span>
+                      )}
+                      {order.status === 'EXPIRED' && (
+                        <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                          <XCircle className="w-3 h-3" />
+                          <span>Expired</span>
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="py-3 px-3 font-mono text-[11px]">
+                      {order.utrNumber ? (
+                        <span className="text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                          {order.utrNumber}
+                        </span>
+                      ) : (
+                        <span className="text-slate-600">-</span>
+                      )}
+                    </td>
+
+                    <td className="py-3 px-3 text-slate-400 text-[11px] font-mono">
+                      {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </td>
+
+                    <td className="py-3 px-3 text-right space-x-2">
+                      <button
+                        onClick={() => onOpenCheckout(order)}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all cursor-pointer inline-flex items-center gap-1 shadow-sm"
+                      >
+                        <Smartphone className="w-3 h-3" />
+                        <span>Checkout</span>
+                      </button>
+
+                      <button
+                        onClick={() => copyOrderLink(order.id, `${window.location.origin}/checkout/${order.id}`)}
+                        className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition-colors cursor-pointer border border-slate-700 inline-flex items-center gap-1"
+                        title="Copy Checkout Link"
+                      >
+                        {copiedLinkIndex === order.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      </button>
+
+                      {order.status === 'PENDING' && (
+                        <button
+                          onClick={() => handleCancelOrder(order.id)}
+                          className="px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-[11px] transition-colors cursor-pointer border border-rose-500/20"
+                          title="Cancel Order"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: Analytics & Trends */}
+      {activeTab === 'analytics' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Revenue & Volume 7-Day Trend Chart */}
+          <div className="lg:col-span-8 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-emerald-400" />
+                <span>7-Day Volume &amp; Transaction Trend</span>
+              </h3>
+              <p className="text-xs text-slate-400">
+                Daily settled volume processed directly to your merchant UPI VPA
+              </p>
+            </div>
+
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={volumeTrendData}>
+                  <defs>
+                    <linearGradient id="colorVolume" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="day" stroke="#64748b" fontSize={11} />
+                  <YAxis stroke="#64748b" fontSize={11} tickFormatter={(val) => `₹${val}`} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '0.75rem', fontSize: '12px' }}
+                    formatter={(value: any) => [`₹${value.toLocaleString('en-IN')}`, 'Settled Volume']}
+                  />
+                  <Area type="monotone" dataKey="volume" stroke="#10b981" strokeWidth={2.5} fillOpacity={1} fill="url(#colorVolume)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* UPI App Split */}
+          <div className="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <PieChartIcon className="w-4 h-4 text-blue-400" />
+                <span>UPI App Inflow Share</span>
+              </h3>
+              <p className="text-xs text-slate-400">
+                Customer intent distribution across apps
+              </p>
+            </div>
+
+            <div className="h-48 w-full flex items-center justify-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={upiAppShareData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={45}
+                    outerRadius={75}
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    {upiAppShareData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '0.75rem', fontSize: '11px' }}
+                    formatter={(value: any) => [`${value}%`, 'Share']}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="space-y-1.5 text-xs">
+              {upiAppShareData.map((app) => (
+                <div key={app.name} className="flex items-center justify-between text-slate-300">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: app.color }} />
+                    <span>{app.name}</span>
+                  </div>
+                  <span className="font-mono font-bold">{app.value}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: API Credentials */}
+      {activeTab === 'api' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+          <div>
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Key className="w-4 h-4 text-emerald-400" />
+              <span>Merchant REST API Credentials</span>
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Authenticate programmatic order creation and intent generation via <code className="text-emerald-400 font-mono">X-API-Key</code>
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Live Public API Key
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={profile.apiKey}
+                  className="flex-1 bg-slate-800 border border-slate-700 text-emerald-300 font-mono text-xs rounded-xl px-4 py-2.5 focus:outline-none"
+                />
+                <button
+                  onClick={() => copyText(profile.apiKey, setCopiedKey)}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedKey ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Live API Secret (Keep Private)
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={profile.apiSecret}
+                  className="flex-1 bg-slate-800 border border-slate-700 text-slate-300 font-mono text-xs rounded-xl px-4 py-2.5 focus:outline-none"
+                />
+                <button
+                  onClick={() => copyText(profile.apiSecret, setCopiedSecret)}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  {copiedSecret ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedSecret ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center justify-between border-t border-slate-800">
+              <div className="text-xs text-slate-400">
+                Regenerating keys will invalidate existing API integrations immediately.
+              </div>
+              <button
+                onClick={onRegenerateKeys}
+                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-rose-500/20 text-rose-300 hover:text-rose-200 text-xs font-semibold transition-colors border border-slate-700 hover:border-rose-500/30 flex items-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Roll Keys</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: Webhooks */}
+      {activeTab === 'webhooks' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Webhook className="w-4 h-4 text-emerald-400" />
+                <span>Real-Time Webhook Dispatch Center</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Receive instant HTTP POST callbacks signed with HMAC-SHA256 when payments succeed
+              </p>
+            </div>
+
+            <button
+              onClick={onTriggerTestWebhook}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-md shadow-emerald-950/60 flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Test Webhook Dispatch</span>
+            </button>
+          </div>
+
+          {/* Webhook Secret */}
+          <div className="p-3.5 bg-slate-800/60 border border-slate-700/80 rounded-xl flex items-center justify-between gap-3 text-xs">
+            <div>
+              <div className="font-semibold text-slate-200">Webhook Secret Key</div>
+              <div className="font-mono text-emerald-400 text-[11px] mt-0.5">{profile.webhookSecret}</div>
+            </div>
+            <span className="text-[11px] text-slate-400 font-mono">Header: X-Signature-SHA256</span>
+          </div>
+
+          {/* Webhook Delivery Logs */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+              Recent Webhook Dispatches
+            </h4>
+
+            {webhookLogs.length === 0 ? (
+              <div className="p-6 text-center text-slate-500 text-xs bg-slate-950 rounded-xl border border-slate-800">
+                No webhook calls logged yet. Complete a payment to trigger a callback.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {webhookLogs.map((log) => (
+                  <div key={log.id} className="p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          {log.statusCode} OK
+                        </span>
+                        <span className="font-mono text-slate-300 text-[11px] truncate max-w-xs">{log.url}</span>
+                      </div>
+                      <span className="text-slate-500 text-[11px] font-mono">
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <pre className="p-2 bg-slate-900 rounded-lg text-[11px] font-mono text-emerald-300 overflow-x-auto border border-slate-800/80">
+                      {JSON.stringify(log.payload, null, 2)}
+                    </pre>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: VPA Settings */}
+      {activeTab === 'settings' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+          <div>
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Settings className="w-4 h-4 text-emerald-400" />
+              <span>UPI Receiver VPA &amp; Settlement Profile</span>
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Configure receiver UPI identifiers for direct P2P customer payments
+            </p>
+          </div>
+
+          {saveSuccessMsg && (
+            <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{saveSuccessMsg}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSaveSettings} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Business / Display Name
+                </label>
+                <input
+                  type="text"
+                  value={editBusinessName}
+                  onChange={(e) => setEditBusinessName(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 text-white text-xs rounded-xl px-4 py-2.5 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Primary Settlement UPI VPA
+                </label>
+                <input
+                  type="text"
+                  value={editVpa}
+                  onChange={(e) => setEditVpa(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 text-emerald-300 font-mono text-xs rounded-xl px-4 py-2.5 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Webhook Callback Endpoint URL
+              </label>
+              <input
+                type="url"
+                value={editWebhookUrl}
+                onChange={(e) => setEditWebhookUrl(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 text-white font-mono text-xs rounded-xl px-4 py-2.5 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div className="pt-2 flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="autoApprove"
+                checked={editAutoApprove}
+                onChange={(e) => setEditAutoApprove(e.target.checked)}
+                className="rounded bg-slate-800 border-slate-700 text-emerald-600 focus:ring-emerald-500"
+              />
+              <label htmlFor="autoApprove" className="text-xs text-slate-300 cursor-pointer">
+                Auto-approve submitted 12-digit UTR references instantly (Demo Testing Mode)
+              </label>
+            </div>
+
+            <div className="pt-3 border-t border-slate-800">
+              <button
+                type="submit"
+                disabled={isSavingSettings}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-950/60 cursor-pointer disabled:opacity-50"
+              >
+                {isSavingSettings ? 'Saving...' : 'Save Configuration'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Modal: Create Payment Intent */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <PlusCircle className="w-4 h-4 text-emerald-400" />
+                <span>Create Instant UPI Payment Link</span>
+              </h3>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="text-slate-400 hover:text-white cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateSubmit} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Amount in INR (₹) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="1"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  required
+                  className="w-full bg-slate-800 border border-slate-700 text-white text-base font-bold rounded-xl px-3.5 py-2 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Order Number
+                  </label>
+                  <input
+                    type="text"
+                    value={orderId}
+                    onChange={(e) => setOrderId(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 text-white font-mono text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Customer Name
+                  </label>
+                  <input
+                    type="text"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 text-white text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Payment Note / Item
+                </label>
+                <input
+                  type="text"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 text-white text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Route to Bank Account / QR
+                </label>
+                <select
+                  value={selectedBankId}
+                  onChange={(e) => setSelectedBankId(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 text-white text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="">⚡ Auto Multi-Bank Engine ({routingStrategy === 'smart_round_robin' ? 'Smart Round-Robin' : routingStrategy === 'limit_aware' ? 'Limit-Aware Balance' : 'Primary Bank Only'})</option>
+                  {bankAccounts.filter(b => b.isActive).map((bank) => (
+                    <option key={bank.id} value={bank.id}>
+                      {bank.bankName} - {bank.accountHolder} ({bank.vpa}) {bank.isPrimary ? '★ Primary' : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Select a specific bank or let the smart routing engine distribute transaction volume across your active bank accounts automatically.
+                </p>
+              </div>
+
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-[11px] text-emerald-300 font-mono">
+                Settlement UPI VPA: {selectedBankId ? (bankAccounts.find(b => b.id === selectedBankId)?.vpa || profile.vpa) : profile.vpa}
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreating}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-all shadow-md shadow-emerald-950/60 cursor-pointer disabled:opacity-50"
+                >
+                  {isCreating ? 'Generating...' : 'Generate & Checkout'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
