@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Order, BankAccountQR } from '../types';
 import { generateAppDeeplinks, formatCurrency } from '../utils/upi';
+import { safeFetch } from '../utils/api';
 
 interface HostedCheckoutProps {
   order: Order;
@@ -129,17 +130,18 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
     setVerificationError('');
 
     try {
-      const res = await fetch(`/api/orders/${order.id}/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ utr: utrInput.trim() }),
-      });
-      const data = await res.json();
-      if (data.success && data.order) {
-        setOrder(data.order);
-        onPaymentSuccess(data.order);
+      const res = await safeFetch<{ success: boolean; order?: Order; error?: string }>(
+        `/api/orders/${order.id}/verify`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ utr: utrInput.trim() }),
+        }
+      );
+      if (res.ok && res.data?.success && res.data.order) {
+        setOrder(res.data.order);
+        onPaymentSuccess(res.data.order);
       } else {
-        setVerificationError(data.error || 'Could not verify transaction.');
+        setVerificationError(res.error || res.data?.error || 'Could not verify transaction.');
       }
     } catch (err: any) {
       setVerificationError(err.message || 'Network error verifying transaction.');
@@ -153,15 +155,16 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
     setUtrInput(randomUtr);
     setIsVerifying(true);
     try {
-      const res = await fetch(`/api/orders/${order.id}/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ utr: randomUtr }),
-      });
-      const data = await res.json();
-      if (data.success && data.order) {
-        setOrder(data.order);
-        onPaymentSuccess(data.order);
+      const res = await safeFetch<{ success: boolean; order?: Order; error?: string }>(
+        `/api/orders/${order.id}/verify`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ utr: randomUtr }),
+        }
+      );
+      if (res.ok && res.data?.success && res.data.order) {
+        setOrder(res.data.order);
+        onPaymentSuccess(res.data.order);
       }
     } catch (err) {
       console.error(err);

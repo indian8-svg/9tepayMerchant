@@ -16,6 +16,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { User } from '../types';
+import { safeFetch } from '../utils/api';
 
 interface AuthPortalProps {
   currentUser: User | null;
@@ -55,18 +56,19 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
         ? { emailOrPhone: customCredentials.email, role: customCredentials.role }
         : { emailOrPhone, password, role: authMode === 'admin' ? 'admin' : 'merchant' };
 
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const res = await safeFetch<{ success: boolean; user: User; token?: string; error?: string }>(
+        '/api/auth/login',
+        {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        }
+      );
 
-      const data = await res.json();
-      if (data.success && data.user) {
-        setSuccessMsg(`Welcome back, ${data.user.name}! Session established.`);
-        onLoginSuccess(data.user);
+      if (res.ok && res.data?.success && res.data.user) {
+        setSuccessMsg(`Welcome back, ${res.data.user.name}! Session established.`);
+        onLoginSuccess(res.data.user);
       } else {
-        setErrorMsg(data.error || 'Invalid credentials or account inactive.');
+        setErrorMsg(res.error || res.data?.error || 'Invalid credentials or account inactive.');
       }
     } catch (err: any) {
       setErrorMsg(err?.message || 'Login connection failed.');
@@ -90,26 +92,27 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
     setIsLoading(true);
     setErrorMsg('');
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          businessName: regBusinessName,
-          ownerName: regOwnerName || regBusinessName,
-          email: regEmail,
-          phone: regPhone,
-          vpa: regVpa,
-          bankAccount: regBankAccount,
-          ifsc: regIfsc,
-        }),
-      });
+      const res = await safeFetch<{ success: boolean; user: User; token?: string; error?: string }>(
+        '/api/auth/register',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            businessName: regBusinessName,
+            ownerName: regOwnerName || regBusinessName,
+            email: regEmail,
+            phone: regPhone,
+            vpa: regVpa,
+            bankAccount: regBankAccount,
+            ifsc: regIfsc,
+          }),
+        }
+      );
 
-      const data = await res.json();
-      if (data.success && data.user) {
+      if (res.ok && res.data?.success && res.data.user) {
         setSuccessMsg('Account registered successfully! Direct UPI settlement activated.');
-        onLoginSuccess(data.user);
+        onLoginSuccess(res.data.user);
       } else {
-        setErrorMsg(data.error || 'Registration failed.');
+        setErrorMsg(res.error || res.data?.error || 'Registration failed.');
       }
     } catch (err: any) {
       setErrorMsg(err?.message || 'Registration error');

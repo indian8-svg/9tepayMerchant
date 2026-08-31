@@ -21,6 +21,7 @@ import {
   Radio,
 } from 'lucide-react';
 import { Order, MerchantProfile, WebhookLog, User, BankAccountQR, BankRoutingStrategy, SecurityEvent } from './types';
+import { safeFetch, fetchJson, api } from './utils/api';
 import { MerchantDashboard } from './components/MerchantDashboard';
 import { HostedCheckout } from './components/HostedCheckout';
 import { DeveloperApiDocs } from './components/DeveloperApiDocs';
@@ -77,48 +78,40 @@ export function App() {
   const refreshAll = async () => {
     try {
       const [ordersRes, profileRes, webhookRes, authRes, banksRes, secRes] = await Promise.all([
-        fetch('/api/orders'),
-        fetch('/api/merchant/profile'),
-        fetch('/api/webhooks/logs'),
-        fetch('/api/auth/me'),
-        fetch('/api/merchant/bank-accounts'),
-        fetch('/api/security/events'),
+        safeFetch<Order[]>('/api/orders'),
+        safeFetch<MerchantProfile>('/api/merchant/profile'),
+        safeFetch<WebhookLog[]>('/api/webhooks/logs'),
+        safeFetch<{ success: boolean; user: User }>('/api/auth/me'),
+        safeFetch<BankAccountQR[]>('/api/merchant/bank-accounts'),
+        safeFetch<SecurityEvent[]>('/api/security/events'),
       ]);
 
-      if (ordersRes.ok) {
-        const ordersData = await ordersRes.json();
-        setOrders(ordersData);
-        if (ordersData.length > 0 && !selectedOrder) {
-          const pending = ordersData.find((o: Order) => o.status === 'PENDING') || ordersData[0];
+      if (ordersRes.ok && Array.isArray(ordersRes.data)) {
+        setOrders(ordersRes.data);
+        if (ordersRes.data.length > 0 && !selectedOrder) {
+          const pending = ordersRes.data.find((o: Order) => o.status === 'PENDING') || ordersRes.data[0];
           setSelectedOrder(pending);
         }
       }
 
-      if (profileRes.ok) {
-        const profileData = await profileRes.json();
-        setProfile(profileData);
+      if (profileRes.ok && profileRes.data) {
+        setProfile(profileRes.data);
       }
 
-      if (webhookRes.ok) {
-        const whData = await webhookRes.json();
-        setWebhookLogs(whData);
+      if (webhookRes.ok && Array.isArray(webhookRes.data)) {
+        setWebhookLogs(webhookRes.data);
       }
 
-      if (banksRes.ok) {
-        const banksData = await banksRes.json();
-        setBankAccounts(banksData);
+      if (banksRes.ok && Array.isArray(banksRes.data)) {
+        setBankAccounts(banksRes.data);
       }
 
-      if (secRes.ok) {
-        const secData = await secRes.json();
-        setSecurityEvents(secData);
+      if (secRes.ok && Array.isArray(secRes.data)) {
+        setSecurityEvents(secRes.data);
       }
 
-      if (authRes.ok) {
-        const authData = await authRes.json();
-        if (authData.user) {
-          setCurrentUser(authData.user);
-        }
+      if (authRes.ok && authRes.data?.user) {
+        setCurrentUser(authRes.data.user);
       }
     } catch (err) {
       console.error('Failed to load initial gateway data', err);
@@ -134,26 +127,24 @@ export function App() {
     setActiveView('checkout');
   };
 
-  const handlePaymentSuccess = (updatedOrder: Order) => {
+  const handlePaymentSuccess = async (updatedOrder: Order) => {
     setOrders((prev) => prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)));
     setSelectedOrder(updatedOrder);
-    fetch('/api/webhooks/logs')
-      .then((res) => res.json())
-      .then((data) => setWebhookLogs(data))
-      .catch(console.error);
-    fetch('/api/merchant/bank-accounts')
-      .then((res) => res.json())
-      .then((data) => setBankAccounts(data))
-      .catch(console.error);
+    
+    const [whRes, banksRes] = await Promise.all([
+      safeFetch<WebhookLog[]>('/api/webhooks/logs'),
+      safeFetch<BankAccountQR[]>('/api/merchant/bank-accounts'),
+    ]);
+    if (whRes.ok && Array.isArray(whRes.data)) {
+      setWebhookLogs(whRes.data);
+    }
+    if (banksRes.ok && Array.isArray(banksRes.data)) {
+      setBankAccounts(banksRes.data);
+    }
   };
 
   const handleCreateOrder = async (orderPayload: any): Promise<Order> => {
-    const res = await fetch('/api/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(orderPayload),
-    });
-    const data = await res.json();
+    const data = await api.post<{ success: boolean; order: Order; error?: string }>('/api/orders', orderPayload);
     if (data.success && data.order) {
       setOrders((prev) => [data.order, ...prev]);
       return data.order;
@@ -162,12 +153,10 @@ export function App() {
   };
 
   const handleUpdateProfile = async (updated: Partial<MerchantProfile>) => {
-    const res = await fetch('/api/merchant/profile', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updated),
-    });
-    const data = await res.json();
+    const data = await api.put<{ success: boolean; profile: MerchantProfile; error?: string }>(
+      '/api/merchant/profile',
+      updated
+    );
     if (data.success && data.profile) {
       setProfile(data.profile);
     }
@@ -175,45 +164,58 @@ export function App() {
 
   // Multi-Bank Handlers
   const handleAddBank = async (bankData: Partial<BankAccountQR>) => {
-    const res = await fetch('/api/merchant/bank-accounts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(bankData),
-    });
-    const data = await res.json();
+    const data = await api.post<{ success: boolean; bankAccount: BankAccountQR; error?: string }>(
+      '/api/merchant/bank-accounts',
+      bankData
+    );
     if (data.success && data.bankAccount) {
       setBankAccounts((prev) => [...prev, data.bankAccount]);
+    } else if (data.error) {
+      throw new Error(data.error);
     }
   };
 
   const handleUpdateBank = async (id: string, bankData: Partial<BankAccountQR>) => {
-    const res = await fetch(`/api/merchant/bank-accounts/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(bankData),
-    });
-    const data = await res.json();
+    const data = await api.put<{ success: boolean; bankAccount: BankAccountQR; error?: string }>(
+      `/api/merchant/bank-accounts/${id}`,
+      bankData
+    );
     if (data.success && data.bankAccount) {
       setBankAccounts((prev) => prev.map((b) => (b.id === id ? data.bankAccount : b)));
+    } else if (data.error) {
+      throw new Error(data.error);
     }
   };
 
   const handleDeleteBank = async (id: string) => {
-    const res = await fetch(`/api/merchant/bank-accounts/${id}`, { method: 'DELETE' });
-    const data = await res.json();
+    const data = await api.delete<{ success: boolean; message?: string; error?: string }>(
+      `/api/merchant/bank-accounts/${id}`
+    );
     if (data.success) {
       setBankAccounts((prev) => prev.filter((b) => b.id !== id));
+    } else if (data.error) {
+      throw new Error(data.error);
     }
   };
 
   const handleSetPrimaryBank = async (id: string) => {
-    const res = await fetch(`/api/merchant/bank-accounts/${id}/primary`, { method: 'PUT' });
-    const data = await res.json();
-    if (data.success && data.bankAccount) {
-      setBankAccounts((prev) =>
-        prev.map((b) => ({ ...b, isPrimary: b.id === id }))
-      );
-      setProfile((prev) => ({ ...prev, vpa: data.bankAccount.vpa }));
+    const data = await api.post<{ success: boolean; bankAccounts?: BankAccountQR[]; bankAccount?: BankAccountQR; error?: string }>(
+      `/api/merchant/bank-accounts/${id}/set-primary`
+    );
+    if (data.success) {
+      if (data.bankAccounts) {
+        setBankAccounts(data.bankAccounts);
+      } else {
+        setBankAccounts((prev) =>
+          prev.map((b) => ({ ...b, isPrimary: b.id === id }))
+        );
+      }
+      const primaryBank = data.bankAccounts?.find((b) => b.id === id) || data.bankAccount;
+      if (primaryBank) {
+        setProfile((prev) => ({ ...prev, vpa: primaryBank.vpa }));
+      }
+    } else if (data.error) {
+      throw new Error(data.error);
     }
   };
 
@@ -228,36 +230,40 @@ export function App() {
     requireStrictUtr: boolean,
     preventDuplicateUtr: boolean
   ) => {
-    const res = await fetch('/api/merchant/routing-rules', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const data = await api.put<{ success: boolean; profile?: MerchantProfile; settings?: any; error?: string }>(
+      '/api/merchant/routing-rules',
+      {
+        strategy,
+        requireStrictUtrFormat: requireStrictUtr,
+        preventDuplicateUtr,
+      }
+    );
+    if (data.success) {
+      setProfile((prev) => ({
+        ...prev,
         routingStrategy: strategy,
         requireStrictUtrFormat: requireStrictUtr,
         preventDuplicateUtr,
-      }),
-    });
-    const data = await res.json();
-    if (data.success && data.profile) {
-      setProfile(data.profile);
+      }));
+    } else if (data.error) {
+      throw new Error(data.error);
     }
   };
 
   const handleTriggerSecurityProbe = async (type: string, orderNumber: string, utr: string) => {
-    const res = await fetch('/api/security/probe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type, orderNumber, utr }),
-    });
-    const data = await res.json();
+    const data = await api.post<{ success: boolean; event: SecurityEvent; error?: string }>(
+      '/api/security/probe',
+      { type, orderNumber, utr }
+    );
     if (data.event) {
       setSecurityEvents((prev) => [data.event, ...prev]);
     }
   };
 
   const handleRegenerateKeys = async () => {
-    const res = await fetch('/api/merchant/keys/regenerate', { method: 'POST' });
-    const data = await res.json();
+    const data = await api.post<{ success: boolean; apiKey: string; apiSecret: string; error?: string }>(
+      '/api/merchant/keys/regenerate'
+    );
     if (data.success) {
       setProfile((prev) => ({
         ...prev,
@@ -268,12 +274,10 @@ export function App() {
   };
 
   const handleTriggerTestWebhook = async () => {
-    const res = await fetch('/api/webhooks/test-dispatch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ webhookUrl: profile.webhookUrl }),
-    });
-    const data = await res.json();
+    const data = await api.post<{ success: boolean; log: WebhookLog; error?: string }>(
+      '/api/webhooks/test-dispatch',
+      { webhookUrl: profile.webhookUrl }
+    );
     if (data.success && data.log) {
       setWebhookLogs((prev) => [data.log, ...prev]);
     }
@@ -290,7 +294,7 @@ export function App() {
   };
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    await safeFetch('/api/auth/logout', { method: 'POST' });
     setCurrentUser(null);
     setActiveView('auth');
   };

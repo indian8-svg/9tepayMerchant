@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { AdminStats, MerchantListItem, Order } from '../types';
 import { formatCurrency } from '../utils/upi';
+import { safeFetch } from '../utils/api';
 
 interface AdminDashboardProps {
   orders: Order[];
@@ -49,18 +50,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ orders, onRefres
     setIsLoading(true);
     try {
       const [statsRes, merchRes] = await Promise.all([
-        fetch('/api/admin/stats'),
-        fetch('/api/admin/merchants'),
+        safeFetch<AdminStats>('/api/admin/stats'),
+        safeFetch<MerchantListItem[]>('/api/admin/merchants'),
       ]);
 
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        setStats(statsData);
+      if (statsRes.ok && statsRes.data) {
+        setStats(statsRes.data);
       }
 
-      if (merchRes.ok) {
-        const merchData = await merchRes.json();
-        setMerchants(merchData);
+      if (merchRes.ok && Array.isArray(merchRes.data)) {
+        setMerchants(merchRes.data);
       }
     } catch (err) {
       console.error('Failed to load admin stats', err);
@@ -76,11 +75,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ orders, onRefres
   const handleToggleStatus = async (merchant: MerchantListItem) => {
     const nextStatus = merchant.status === 'active' ? 'suspended' : 'active';
     try {
-      const res = await fetch(`/api/admin/merchants/${merchant.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: nextStatus }),
-      });
+      const res = await safeFetch<{ success: boolean; merchant?: MerchantListItem }>(
+        `/api/admin/merchants/${merchant.id}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({ status: nextStatus }),
+        }
+      );
       if (res.ok) {
         setMerchants((prev) =>
           prev.map((m) => (m.id === merchant.id ? { ...m, status: nextStatus } : m))
@@ -93,11 +94,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ orders, onRefres
 
   const handleApproveKyc = async (merchantId: string) => {
     try {
-      const res = await fetch(`/api/admin/merchants/${merchantId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'active' }),
-      });
+      const res = await safeFetch<{ success: boolean; merchant?: MerchantListItem }>(
+        `/api/admin/merchants/${merchantId}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({ status: 'active' }),
+        }
+      );
       if (res.ok) {
         setMerchants((prev) =>
           prev.map((m) => (m.id === merchantId ? { ...m, status: 'active' } : m))
@@ -111,10 +114,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ orders, onRefres
   const handleReconcileAll = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/admin/reconcile-all', { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        setReconciliationMsg(data.message);
+      const res = await safeFetch<{ success: boolean; message: string }>(
+        '/api/admin/reconcile-all',
+        { method: 'POST' }
+      );
+      if (res.ok && res.data?.success) {
+        setReconciliationMsg(res.data.message);
         if (onRefreshOrders) onRefreshOrders();
         fetchAdminData();
         setTimeout(() => setReconciliationMsg(''), 4000);

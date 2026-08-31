@@ -8,6 +8,18 @@ const PORT = 3000;
 app.use(express.json({ limit: "15mb" }));
 app.use(express.urlencoded({ extended: true, limit: "15mb" }));
 
+// Set default Content-Type: application/json on all API routes to prevent HTML response ambiguity
+app.use("/api", (_req, res, next) => {
+  res.setHeader("Content-Type", "application/json");
+  next();
+});
+app.use((req, res, next) => {
+  if (req.url.endsWith(".php")) {
+    res.setHeader("Content-Type", "application/json");
+  }
+  next();
+});
+
 // In-Memory Database for demonstration and live usage
 interface OrderItem {
   id: string;
@@ -431,11 +443,11 @@ let currentUser = {
 };
 
 // --- Auth Routes (/auth/login.php & /auth/register.php) ---
-app.get("/api/auth/me", (_req, res) => {
-  res.json({ user: currentUser, session: "payindia_session_active" });
+app.get(["/api/auth/me", "/auth/me"], (_req, res) => {
+  res.json({ success: true, user: currentUser, session: "payindia_session_active" });
 });
 
-app.post("/api/auth/login", (req, res) => {
+app.post(["/api/auth/login", "/auth/login.php", "/api/login", "/auth/login"], (req, res) => {
   const { emailOrPhone, password, role } = req.body;
   
   if (role === "admin" || emailOrPhone === "admin@demotry.shop") {
@@ -492,11 +504,11 @@ app.post("/api/auth/login", (req, res) => {
   res.json({ success: true, user: currentUser, token: "payindia_session_merchant_live" });
 });
 
-app.post("/api/auth/register", (req, res) => {
+app.post(["/api/auth/register", "/auth/register.php", "/api/register", "/auth/register"], (req, res) => {
   const { businessName, ownerName, email, phone, vpa, bankAccount, ifsc } = req.body;
 
   if (!businessName || !email || !vpa) {
-    return res.status(400).json({ error: "Business name, email, and UPI VPA are required." });
+    return res.status(400).json({ success: false, error: "Business name, email, and UPI VPA are required." });
   }
 
   const newMerchId = `merch_live_${Math.random().toString(36).substring(2, 8)}`;
@@ -544,7 +556,7 @@ app.post("/api/auth/register", (req, res) => {
   });
 });
 
-app.post("/api/auth/logout", (_req, res) => {
+app.post(["/api/auth/logout", "/auth/logout.php", "/api/logout", "/auth/logout"], (_req, res) => {
   res.json({ success: true, message: "Logged out. Redirecting to /auth/login.php" });
 });
 
@@ -617,15 +629,15 @@ app.post("/api/orders/:id/cancel", (req, res) => {
 });
 
 // --- Bank Accounts & QR Codes Management ---
-app.get("/api/merchant/bank-accounts", (_req, res) => {
+app.get(["/api/merchant/bank-accounts", "/api/bank-accounts", "/api/bank_update.php"], (_req, res) => {
   res.json(bankAccounts);
 });
 
-app.post("/api/merchant/bank-accounts", (req, res) => {
+app.post(["/api/merchant/bank-accounts", "/api/bank-accounts", "/api/bank_update.php"], (req, res) => {
   const { bankName, accountHolder, accountNumber, ifsc, vpa, qrTitle, qrType, qrColor, customQrImage, dailyLimit, routingWeight } = req.body;
 
   if (!bankName || !accountNumber || !ifsc || !vpa) {
-    return res.status(400).json({ error: "Bank name, account number, IFSC, and UPI VPA are required." });
+    return res.status(400).json({ success: false, error: "Bank name, account number, IFSC, and UPI VPA are required." });
   }
 
   const newBank: BankAccountItem = {
@@ -652,11 +664,11 @@ app.post("/api/merchant/bank-accounts", (req, res) => {
   res.status(201).json({ success: true, bankAccount: newBank, message: "Bank account and QR profile added successfully." });
 });
 
-app.put("/api/merchant/bank-accounts/:id", (req, res) => {
+app.put(["/api/merchant/bank-accounts/:id", "/api/bank-accounts/:id"], (req, res) => {
   const { id } = req.params;
   const index = bankAccounts.findIndex((b) => b.id === id);
   if (index === -1) {
-    return res.status(404).json({ error: "Bank account not found" });
+    return res.status(404).json({ success: false, error: "Bank account not found" });
   }
 
   bankAccounts[index] = { ...bankAccounts[index], ...req.body };
@@ -677,10 +689,10 @@ app.put("/api/merchant/bank-accounts/:id", (req, res) => {
   res.json({ success: true, bankAccount: bankAccounts[index] });
 });
 
-app.delete("/api/merchant/bank-accounts/:id", (req, res) => {
+app.delete(["/api/merchant/bank-accounts/:id", "/api/bank-accounts/:id"], (req, res) => {
   const { id } = req.params;
   if (bankAccounts.length <= 1) {
-    return res.status(400).json({ error: "At least one active settlement bank account must be maintained." });
+    return res.status(400).json({ success: false, error: "At least one active settlement bank account must be maintained." });
   }
 
   const deleted = bankAccounts.find((b) => b.id === id);
@@ -695,11 +707,11 @@ app.delete("/api/merchant/bank-accounts/:id", (req, res) => {
   res.json({ success: true, message: "Bank account removed." });
 });
 
-app.post("/api/merchant/bank-accounts/:id/set-primary", (req, res) => {
+app.all(["/api/merchant/bank-accounts/:id/set-primary", "/api/merchant/bank-accounts/:id/primary"], (req, res) => {
   const { id } = req.params;
   const target = bankAccounts.find((b) => b.id === id);
   if (!target) {
-    return res.status(404).json({ error: "Bank account not found" });
+    return res.status(404).json({ success: false, error: "Bank account not found" });
   }
 
   bankAccounts.forEach((b) => {
@@ -710,18 +722,18 @@ app.post("/api/merchant/bank-accounts/:id/set-primary", (req, res) => {
   res.json({ success: true, message: `Primary settlement VPA updated to ${target.vpa}`, bankAccounts });
 });
 
-app.post("/api/merchant/bank-accounts/:id/toggle-active", (req, res) => {
+app.all(["/api/merchant/bank-accounts/:id/toggle-active", "/api/merchant/bank-accounts/:id/toggle"], (req, res) => {
   const { id } = req.params;
   const target = bankAccounts.find((b) => b.id === id);
   if (!target) {
-    return res.status(404).json({ error: "Bank account not found" });
+    return res.status(404).json({ success: false, error: "Bank account not found" });
   }
 
   target.isActive = !target.isActive;
   res.json({ success: true, bankAccount: target, bankAccounts });
 });
 
-app.get("/api/merchant/routing-rules", (_req, res) => {
+app.get(["/api/merchant/routing-rules", "/api/merchant/routing"], (_req, res) => {
   res.json({
     strategy: merchantProfile.routingStrategy,
     requireStrictUtrFormat: merchantProfile.requireStrictUtrFormat,
@@ -731,7 +743,7 @@ app.get("/api/merchant/routing-rules", (_req, res) => {
   });
 });
 
-app.put("/api/merchant/routing-rules", (req, res) => {
+app.put(["/api/merchant/routing-rules", "/api/merchant/routing"], (req, res) => {
   const { strategy, requireStrictUtrFormat, preventDuplicateUtr } = req.body;
   if (strategy) merchantProfile.routingStrategy = strategy;
   if (requireStrictUtrFormat !== undefined) merchantProfile.requireStrictUtrFormat = Boolean(requireStrictUtrFormat);
@@ -749,11 +761,11 @@ app.put("/api/merchant/routing-rules", (req, res) => {
 });
 
 // --- Security Audit & Anti-Fraud Logs ---
-app.get("/api/security/events", (_req, res) => {
+app.get(["/api/security/events", "/api/security/logs"], (_req, res) => {
   res.json(securityLogs);
 });
 
-app.post("/api/security/test-tamper", (req, res) => {
+app.post(["/api/security/probe", "/api/security/test-tamper"], (req, res) => {
   const { type, orderNumber, utr } = req.body;
   const newEvt: SecurityEventItem = {
     id: `sec_evt_${Date.now().toString().slice(-6)}`,
@@ -1191,7 +1203,29 @@ app.post("/api/analyze-url", async (req, res) => {
       isHttps: targetUrl.startsWith("https://"),
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message || "Internal server error" });
+    res.status(500).json({ success: false, error: error.message || "Internal server error" });
+  }
+});
+
+// Explicit JSON 404 handler for API routes and PHP scripts
+// Ensures non-existent API endpoints return JSON error instead of Vite HTML
+app.all(["/api/*", "*.php", "/api"], (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: `API endpoint not found: ${req.method} ${req.originalUrl || req.url}`,
+    code: "ENDPOINT_NOT_FOUND",
+  });
+});
+
+// Global API error handler
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("API Server Error:", err);
+  if (!res.headersSent) {
+    res.status(err.status || 500).json({
+      success: false,
+      error: err.message || "Internal server error",
+      code: "INTERNAL_SERVER_ERROR",
+    });
   }
 });
 

@@ -15,6 +15,7 @@ import {
   Webhook,
 } from 'lucide-react';
 import { MerchantProfile } from '../types';
+import { safeFetch } from '../utils/api';
 
 interface DeveloperApiDocsProps {
   profile: MerchantProfile;
@@ -182,9 +183,8 @@ func main() {
     setIsLoading(true);
     setSandboxResponse(null);
     try {
-      const res = await fetch('/api/orders', {
+      const res = await safeFetch<any>('/api/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: Number(sandboxAmount),
           orderId: sandboxOrderNo,
@@ -193,8 +193,11 @@ func main() {
           note: 'Sandbox API Test Order',
         }),
       });
-      const data = await res.json();
-      setSandboxResponse(JSON.stringify(data, null, 2));
+      if (res.ok && res.data) {
+        setSandboxResponse(JSON.stringify(res.data, null, 2));
+      } else {
+        setSandboxResponse(JSON.stringify({ error: res.error || 'Failed to process request' }, null, 2));
+      }
       setSandboxOrderNo(`ORD-API-${Math.floor(1000 + Math.random() * 9000)}`);
     } catch (err: any) {
       setSandboxResponse(JSON.stringify({ error: err.message }, null, 2));
