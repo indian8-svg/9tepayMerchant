@@ -140,7 +140,7 @@ export const LiveCustomScanView: React.FC<LiveCustomScanViewProps> = ({
           <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
             Redirect Chain Execution Trace
           </h4>
-          {(data.redirectChain || []).map((hop, i) => (
+          {data.redirectChain.map((hop, i) => (
             <div key={i} className="flex items-center gap-2 text-xs font-mono text-slate-400 break-all">
               <span className="px-2 py-0.5 rounded bg-slate-800 text-amber-400 font-bold">
                 {hop.status}
@@ -161,7 +161,7 @@ export const LiveCustomScanView: React.FC<LiveCustomScanViewProps> = ({
             <span>Detected Technologies & Fingerprints</span>
           </div>
           <div className="flex flex-wrap gap-2 pt-1">
-            {(data.detectedTech || []).map((tech, idx) => (
+            {data.detectedTech.map((tech, idx) => (
               <span
                 key={idx}
                 className="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 text-xs font-medium text-indigo-300"

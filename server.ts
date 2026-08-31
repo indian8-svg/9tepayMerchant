@@ -175,21 +175,6 @@ interface MerchantListItem {
 
 let merchantsList: MerchantListItem[] = [];
 
-let merchantKyc = {
-  status: "approved" as "unsubmitted" | "pending" | "approved" | "rejected",
-  details: {
-    companyName: "My Business Gateway",
-    registeredAddress: "Connaught Place, New Delhi, India",
-    businessType: "Private Limited",
-    gstNumber: "07AABCM1234F1Z5",
-    companyPan: "AABCM1234F",
-    directorAadhaar: "1234 5678 9012",
-    directorPan: "XYZPR5678K",
-    photograph: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
-    submittedAt: new Date().toISOString(),
-  },
-};
-
 let currentUser = {
   id: "usr_merchant_new",
   name: "My Business",
@@ -312,40 +297,6 @@ app.get("/api/auth/me", (_req, res) => {
 app.post("/api/auth/logout", (_req, res) => {
   currentUser = null;
   res.json({ success: true, message: "Logged out successfully" });
-});
-
-app.get("/api/merchant/kyc", (_req, res) => {
-  res.json(merchantKyc);
-});
-
-app.post("/api/merchant/kyc", (req, res) => {
-  const { companyName, registeredAddress, businessType, gstNumber, companyPan, directorAadhaar, directorPan, photograph } = req.body;
-  if (!companyName || !gstNumber || !companyPan || !directorAadhaar || !directorPan) {
-    return res.status(400).json({ error: "Company name, GST number, company PAN, Director Aadhaar, and Director PAN are required." });
-  }
-
-  merchantKyc = {
-    status: "approved",
-    details: {
-      companyName: companyName.trim(),
-      registeredAddress: registeredAddress?.trim() || "",
-      businessType: businessType || "Private Limited",
-      gstNumber: gstNumber.trim().toUpperCase(),
-      companyPan: companyPan.trim().toUpperCase(),
-      directorAadhaar: directorAadhaar.trim(),
-      directorPan: directorPan.trim().toUpperCase(),
-      photograph: photograph || "",
-      submittedAt: new Date().toISOString(),
-    },
-  };
-
-  if (currentUser) {
-    currentUser.status = "active";
-    currentUser.businessName = companyName.trim();
-  }
-  merchantProfile.businessName = companyName.trim();
-
-  res.json({ success: true, message: "KYC verification submitted and approved successfully!", kyc: merchantKyc });
 });
 
 app.post("/api/auth/login", (req, res) => {
@@ -483,9 +434,6 @@ app.get("/api/merchant/bank-accounts", (_req, res) => {
 });
 
 app.post("/api/merchant/bank-accounts", (req, res) => {
-  if (currentUser?.role === "merchant" && merchantKyc.status !== "approved") {
-    return res.status(403).json({ error: "KYC verification is required before adding bank accounts. Please submit your company & director KYC." });
-  }
   const { bankName, accountHolder, accountNumber, ifsc, vpa, qrTitle, qrType, qrColor, customQrImage, dailyLimit, routingWeight } = req.body;
 
   if (!bankName || !accountNumber || !ifsc || !vpa) {
@@ -675,9 +623,6 @@ app.get("/api/orders", (_req, res) => {
 
 // Create Order (Simulates `POST /api/create-order` endpoint from Lolapay/PayIndia documentation)
 app.post("/api/orders", (req, res) => {
-  if (currentUser?.role === "merchant" && merchantKyc.status !== "approved") {
-    return res.status(403).json({ error: "KYC verification is required before starting payment collection. Please complete your KYC verification." });
-  }
   const { amount, orderId, customerName, customerEmail, customerPhone, note, callbackUrl, bankAccountId } = req.body;
 
   if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
