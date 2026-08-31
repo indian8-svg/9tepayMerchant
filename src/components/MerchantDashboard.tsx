@@ -84,7 +84,60 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
   onRegenerateKeys,
   onTriggerTestWebhook,
 }) => {
-  const [activeTab, setActiveTab] = useState<'orders' | 'banks' | 'security' | 'analytics' | 'api' | 'webhooks' | 'settings'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'banks' | 'kyc' | 'security' | 'analytics' | 'api' | 'webhooks' | 'settings'>('orders');
+  const [kycStatus, setKycStatus] = useState<'unsubmitted' | 'pending' | 'approved' | 'rejected'>('approved');
+  const [kycForm, setKycForm] = useState({
+    companyName: profile.businessName || '',
+    registeredAddress: 'Connaught Place, New Delhi, India',
+    businessType: 'Private Limited',
+    gstNumber: '07AABCM1234F1Z5',
+    companyPan: 'AABCM1234F',
+    directorAadhaar: '1234 5678 9012',
+    directorPan: 'XYZPR5678K',
+    photograph: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+  });
+  const [isSubmittingKyc, setIsSubmittingKyc] = useState(false);
+  const [kycMsg, setKycMsg] = useState('');
+  const [kycError, setKycError] = useState('');
+
+  React.useEffect(() => {
+    fetch('/api/merchant/kyc')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.status) {
+          setKycStatus(data.status);
+          if (data.details && data.details.companyName) {
+            setKycForm(data.details);
+          }
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  const handleKycSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingKyc(true);
+    setKycError('');
+    setKycMsg('');
+    try {
+      const res = await fetch('/api/merchant/kyc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(kycForm),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setKycStatus('approved');
+        setKycMsg(data.message || 'KYC verification submitted and approved successfully!');
+      } else {
+        setKycError(data.error || 'KYC submission failed');
+      }
+    } catch (err: any) {
+      setKycError(err.message || 'Network error');
+    } finally {
+      setIsSubmittingKyc(false);
+    }
+  };
   const [orderFilter, setOrderFilter] = useState<'ALL' | 'PAID' | 'PENDING' | 'EXPIRED'>('ALL');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -281,6 +334,29 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
         </div>
       </div>
 
+      {/* KYC Warning Banner if not approved */}
+      {kycStatus !== 'approved' && (
+        <div className="bg-amber-950/40 border border-amber-500/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-amber-200">KYC Verification Required</h4>
+              <p className="text-xs text-amber-300/80 mt-0.5">
+                Without KYC approval, you cannot add bank accounts or start collecting payments. Please submit your company &amp; director details.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setActiveTab('kyc')}
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all whitespace-nowrap cursor-pointer"
+          >
+            Complete KYC Now
+          </button>
+        </div>
+      )}
+
       {/* Subnavigation Menu */}
       <div className="flex items-center justify-between border-b border-slate-800 pb-2">
         <div className="flex flex-wrap items-center gap-1.5">
@@ -304,6 +380,17 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
           >
             <Building2 className="w-3.5 h-3.5" />
             <span>Bank Accounts &amp; QRs ({bankAccounts.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('kyc')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'kyc'
+                ? 'bg-emerald-900/50 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>KYC Verification</span>
           </button>
           <button
             onClick={() => setActiveTab('security')}
@@ -370,6 +457,160 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
           <span>New Payment</span>
         </button>
       </div>
+
+      {/* TAB: KYC Verification */}
+      {activeTab === 'kyc' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6 max-w-4xl mx-auto">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                <span>Merchant Business &amp; Director KYC Verification</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Mandatory NPCI &amp; RBI compliance verification. Without verified KYC, adding bank accounts or collecting payments is locked.
+              </p>
+            </div>
+            <div>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                kycStatus === 'approved'
+                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                  : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+              }`}>
+                Status: {kycStatus.toUpperCase()}
+              </span>
+            </div>
+          </div>
+
+          {kycMsg && (
+            <div className="p-4 rounded-xl bg-emerald-950/50 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{kycMsg}</span>
+            </div>
+          )}
+
+          {kycError && (
+            <div className="p-4 rounded-xl bg-rose-950/50 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>{kycError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleKycSubmit} className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Company Name</label>
+                <input
+                  type="text"
+                  value={kycForm.companyName}
+                  onChange={(e) => setKycForm({ ...kycForm, companyName: e.target.value })}
+                  required
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  placeholder="e.g. Acme Technologies Pvt Ltd"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Business Type</label>
+                <select
+                  value={kycForm.businessType}
+                  onChange={(e) => setKycForm({ ...kycForm, businessType: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="Private Limited">Private Limited</option>
+                  <option value="Partnership">Partnership</option>
+                  <option value="Proprietorship">Proprietorship</option>
+                  <option value="LLP">LLP</option>
+                  <option value="Public Limited">Public Limited</option>
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Registered Address</label>
+                <input
+                  type="text"
+                  value={kycForm.registeredAddress}
+                  onChange={(e) => setKycForm({ ...kycForm, registeredAddress: e.target.value })}
+                  required
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  placeholder="Full office or corporate address"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">GST Number</label>
+                <input
+                  type="text"
+                  value={kycForm.gstNumber}
+                  onChange={(e) => setKycForm({ ...kycForm, gstNumber: e.target.value })}
+                  required
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono uppercase focus:outline-none focus:border-emerald-500"
+                  placeholder="27AABCM1234F1Z5"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Company PAN Number</label>
+                <input
+                  type="text"
+                  value={kycForm.companyPan}
+                  onChange={(e) => setKycForm({ ...kycForm, companyPan: e.target.value })}
+                  required
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono uppercase focus:outline-none focus:border-emerald-500"
+                  placeholder="AABCM1234F"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Director Aadhaar Card Number</label>
+                <input
+                  type="text"
+                  value={kycForm.directorAadhaar}
+                  onChange={(e) => setKycForm({ ...kycForm, directorAadhaar: e.target.value })}
+                  required
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
+                  placeholder="XXXX XXXX XXXX"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Director PAN Card Number</label>
+                <input
+                  type="text"
+                  value={kycForm.directorPan}
+                  onChange={(e) => setKycForm({ ...kycForm, directorPan: e.target.value })}
+                  required
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono uppercase focus:outline-none focus:border-emerald-500"
+                  placeholder="ABCDE1234F"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Director Photograph (Image URL / Selfie)</label>
+                <input
+                  type="url"
+                  value={kycForm.photograph}
+                  onChange={(e) => setKycForm({ ...kycForm, photograph: e.target.value })}
+                  required
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  placeholder="https://example.com/director-photo.jpg"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="submit"
+                disabled={isSubmittingKyc}
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2"
+              >
+                {isSubmittingKyc && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                <span>{isSubmittingKyc ? 'Submitting & Verifying KYC...' : 'Submit & Verify KYC'}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* TAB 2: Multiple Bank Accounts & QR Fleet */}
       {activeTab === 'banks' && (

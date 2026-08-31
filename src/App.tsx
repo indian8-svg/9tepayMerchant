@@ -37,20 +37,10 @@ import { demotryAnalysisData } from './data/demotryAnalysis';
 
 export function App() {
   const [activeView, setActiveView] = useState<
-    'dashboard' | 'checkout' | 'admin' | 'auth' | 'docs' | 'audit' | 'workflow' | 'live_scan'
+    'dashboard' | 'checkout' | 'admin' | 'docs' | 'audit' | 'workflow' | 'live_scan'
   >('dashboard');
 
-  const [currentUser, setCurrentUser] = useState<User | null>({
-    id: 'usr_merchant_01',
-    name: 'Abhay Sharma',
-    email: 'merchant@9tepay.com',
-    phone: '+91 98765 43210',
-    role: 'merchant',
-    businessName: '9tepay Merchant Services',
-    vpa: '9tepay.business@icici',
-    status: 'active',
-    createdAt: '2026-08-01T10:00:00.000Z',
-  });
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccountQR[]>([]);
@@ -128,6 +118,12 @@ export function App() {
   useEffect(() => {
     refreshAll();
   }, []);
+
+  useEffect(() => {
+    if (currentUser?.role !== 'admin' && (activeView === 'admin' || activeView === 'audit')) {
+      setActiveView('dashboard');
+    }
+  }, [currentUser, activeView]);
 
   const handleOpenCheckout = (order: Order) => {
     setSelectedOrder(order);
@@ -292,8 +288,32 @@ export function App() {
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     setCurrentUser(null);
-    setActiveView('auth');
   };
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center py-10 px-4 font-sans selection:bg-emerald-500 selection:text-white">
+        <div className="max-w-xl mx-auto w-full space-y-6">
+          <div className="text-center space-y-2">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-xl shadow-emerald-950/50 mx-auto">
+              <QrCode className="w-7 h-7" />
+            </div>
+            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+              9tepay Merchant Gateway
+            </h1>
+            <p className="text-xs text-slate-400">
+              Enterprise UPI Deeplink Intent &amp; Direct Settlement Switch. Please sign in or register to access your dashboard.
+            </p>
+          </div>
+          <AuthPortal
+            currentUser={currentUser}
+            onLoginSuccess={handleLoginSuccess}
+            onLogout={handleLogout}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-white">
@@ -319,131 +339,125 @@ export function App() {
             </div>
           </div>
 
-          {/* Navigation Bar */}
-          <nav className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-xs overflow-x-auto max-w-full">
-            {/* Merchant Dashboard */}
-            <button
-              onClick={() => setActiveView('dashboard')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeView === 'dashboard'
-                  ? 'bg-emerald-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Merchant Dashboard (/merchant/dashboard.php)"
-            >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Merchant</span>
-              <span className="sm:hidden">Merchant</span>
-            </button>
+          {/* Navigation Bar & User Actions */}
+          <div className="flex items-center gap-3">
+            <nav className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-xs overflow-x-auto max-w-full">
+              {/* Merchant Dashboard */}
+              <button
+                onClick={() => setActiveView('dashboard')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeView === 'dashboard'
+                    ? 'bg-emerald-600 text-white shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Merchant Dashboard"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Merchant</span>
+              </button>
 
-            {/* Deeplink Checkout */}
-            <button
-              onClick={() => {
-                if (!selectedOrder && orders.length > 0) {
-                  setSelectedOrder(orders[0]);
-                }
-                setActiveView('checkout');
-              }}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeView === 'checkout'
-                  ? 'bg-emerald-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Hosted Checkout Demo (/demo)"
-            >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Checkout</span>
-              <span className="sm:hidden">Pay</span>
-            </button>
+              {/* Deeplink Checkout */}
+              <button
+                onClick={() => {
+                  if (!selectedOrder && orders.length > 0) {
+                    setSelectedOrder(orders[0]);
+                  }
+                  setActiveView('checkout');
+                }}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeView === 'checkout'
+                    ? 'bg-emerald-600 text-white shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Hosted Checkout Demo"
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Checkout</span>
+              </button>
 
-            {/* Superadmin Panel */}
-            <button
-              onClick={() => setActiveView('admin')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeView === 'admin'
-                  ? 'bg-amber-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Superadmin Panel (/admin/dashboard.php)"
-            >
-              <Shield className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Admin</span>
-              <span className="sm:hidden">Admin</span>
-            </button>
+              {/* Superadmin Panel */}
+              {currentUser?.role === 'admin' && (
+                <button
+                  onClick={() => setActiveView('admin')}
+                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                    activeView === 'admin'
+                      ? 'bg-amber-600 text-white shadow'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Superadmin Panel"
+                >
+                  <Shield className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Admin</span>
+                </button>
+              )}
 
-            {/* Auth Portal */}
-            <button
-              onClick={() => setActiveView('auth')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeView === 'auth'
-                  ? 'bg-emerald-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Auth Gate & Onboarding (/auth/login.php)"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Auth/Onboard</span>
-              <span className="sm:hidden">Auth</span>
-            </button>
+              {/* Developer API */}
+              <button
+                onClick={() => setActiveView('docs')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeView === 'docs'
+                    ? 'bg-emerald-600 text-white shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Developer API & Sandbox"
+              >
+                <Code2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">API</span>
+              </button>
 
-            {/* Developer API */}
-            <button
-              onClick={() => setActiveView('docs')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeView === 'docs'
-                  ? 'bg-emerald-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Developer API & Sandbox (/docs)"
-            >
-              <Code2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">API</span>
-              <span className="sm:hidden">API</span>
-            </button>
+              {/* Security Audit */}
+              {currentUser?.role === 'admin' && (
+                <button
+                  onClick={() => setActiveView('audit')}
+                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                    activeView === 'audit'
+                      ? 'bg-emerald-600 text-white shadow'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Security Audit & Intel"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Audit</span>
+                </button>
+              )}
 
-            {/* Security Audit */}
-            <button
-              onClick={() => setActiveView('audit')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeView === 'audit'
-                  ? 'bg-emerald-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="demotry.shop Threat Audit & Intel"
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Audit</span>
-              <span className="sm:hidden">Audit</span>
-            </button>
+              {/* Workflow Simulator */}
+              <button
+                onClick={() => setActiveView('workflow')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeView === 'workflow'
+                    ? 'bg-emerald-600 text-white shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Payment Flow Architecture"
+              >
+                <Workflow className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Flow</span>
+              </button>
 
-            {/* Workflow Simulator */}
-            <button
-              onClick={() => setActiveView('workflow')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeView === 'workflow'
-                  ? 'bg-emerald-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Payment Flow Architecture"
-            >
-              <Workflow className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Flow</span>
-            </button>
+              {/* Live URL Scanner */}
+              <button
+                onClick={() => setActiveView('live_scan')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeView === 'live_scan'
+                    ? 'bg-emerald-600 text-white shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Live URL Inspector"
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Scanner</span>
+              </button>
+            </nav>
 
-            {/* Live URL Scanner */}
             <button
-              onClick={() => setActiveView('live_scan')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeView === 'live_scan'
-                  ? 'bg-emerald-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Live URL Inspector"
+              onClick={handleLogout}
+              className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
+              title="Sign Out"
             >
-              <Globe className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Scanner</span>
+              <span>Sign Out</span>
             </button>
-          </nav>
+          </div>
         </div>
       </header>
 
@@ -484,29 +498,20 @@ export function App() {
         )}
 
         {/* VIEW 3: Superadmin Control Panel */}
-        {activeView === 'admin' && (
+        {currentUser?.role === 'admin' && activeView === 'admin' && (
           <AdminDashboard
             orders={orders}
             onRefreshOrders={refreshAll}
           />
         )}
 
-        {/* VIEW 4: Auth & Onboarding Portal */}
-        {activeView === 'auth' && (
-          <AuthPortal
-            currentUser={currentUser}
-            onLoginSuccess={handleLoginSuccess}
-            onLogout={handleLogout}
-          />
-        )}
-
-        {/* VIEW 5: Developer API Docs */}
+        {/* VIEW 4: Developer API Docs */}
         {activeView === 'docs' && (
           <DeveloperApiDocs profile={profile} />
         )}
 
         {/* VIEW 6: Security Audit of demotry.shop */}
-        {activeView === 'audit' && (
+        {currentUser?.role === 'admin' && activeView === 'audit' && (
           <div className="space-y-6">
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

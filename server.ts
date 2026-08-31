@@ -69,129 +69,24 @@ interface SecurityEventItem {
 }
 
 let merchantProfile = {
-  businessName: "9tepay Merchant Services",
-  vpa: "9tepay.business@icici",
+  businessName: "My Business Gateway",
+  vpa: "yourname@upi",
   phone: "+91 98765 43210",
-  email: "merchant@9tepay.com",
-  apiKey: "pi_live_9b4e872c019a8f23",
-  apiSecret: "sk_live_65a7d903e14fbc9081",
-  webhookUrl: "https://shop.example.com/api/webhook/upi-callback",
-  webhookSecret: "whsec_live_99a8b7c6d5e4f3a2",
+  email: "merchant@mybusiness.com",
+  apiKey: "pi_live_xxxxxxxxxxxxxxxx",
+  apiSecret: "sk_live_xxxxxxxxxxxxxxxx",
+  webhookUrl: "https://yourdomain.com/api/webhook/upi-callback",
+  webhookSecret: "whsec_live_xxxxxxxxxxxx",
   autoApproveUtr: true,
   settlementRate: 0.0,
-  routingStrategy: "smart_round_robin" as "smart_round_robin" | "primary_only" | "limit_aware" | "manual",
+  routingStrategy: "primary_only" as "smart_round_robin" | "primary_only" | "limit_aware" | "manual",
   requireStrictUtrFormat: true,
   preventDuplicateUtr: true,
 };
 
-let bankAccounts: BankAccountItem[] = [
-  {
-    id: "bank_icici_01",
-    bankName: "ICICI Bank",
-    accountHolder: "9tepay Merchant Services",
-    accountNumber: "919876543210",
-    ifsc: "ICIC0000102",
-    vpa: "9tepay.business@icici",
-    qrTitle: "Primary Retail Instant QR",
-    qrType: "dynamic_intent",
-    qrColor: "#10b981",
-    isPrimary: true,
-    isActive: true,
-    dailyLimit: 200000,
-    dailyVolume: 4848,
-    totalSettled: 184500,
-    routingWeight: 5,
-    createdAt: "2026-08-01T10:00:00.000Z",
-  },
-  {
-    id: "bank_hdfc_02",
-    bankName: "HDFC Bank",
-    accountHolder: "9tepay Merchant Services",
-    accountNumber: "50100492817263",
-    ifsc: "HDFC0000060",
-    vpa: "9tepay.settle@hdfcbank",
-    qrTitle: "Commercial High-Volume QR",
-    qrType: "dynamic_intent",
-    qrColor: "#3b82f6",
-    isPrimary: false,
-    isActive: true,
-    dailyLimit: 500000,
-    dailyVolume: 0,
-    totalSettled: 92300,
-    routingWeight: 3,
-    createdAt: "2026-08-10T12:00:00.000Z",
-  },
-  {
-    id: "bank_sbi_03",
-    bankName: "State Bank of India",
-    accountHolder: "9tepay Merchant Services",
-    accountNumber: "308492019482",
-    ifsc: "SBIN0000456",
-    vpa: "9tepay.vip@sbi",
-    qrTitle: "VIP High-Ticket Soundbox",
-    qrType: "static_soundbox",
-    qrColor: "#8b5cf6",
-    isPrimary: false,
-    isActive: true,
-    dailyLimit: 1000000,
-    dailyVolume: 0,
-    totalSettled: 412000,
-    routingWeight: 2,
-    createdAt: "2026-08-15T15:30:00.000Z",
-  },
-  {
-    id: "bank_axis_04",
-    bankName: "Axis Bank",
-    accountHolder: "9tepay Merchant Services",
-    accountNumber: "91802938472910",
-    ifsc: "UTIB0000142",
-    vpa: "9tepay.corp@okaxis",
-    qrTitle: "Reserve Backup Gateway",
-    qrType: "custom_branding",
-    qrColor: "#f59e0b",
-    isPrimary: false,
-    isActive: false,
-    dailyLimit: 300000,
-    dailyVolume: 0,
-    totalSettled: 35000,
-    routingWeight: 1,
-    createdAt: "2026-08-20T08:45:00.000Z",
-  },
-];
+let bankAccounts: BankAccountItem[] = [];
 
-let securityLogs: SecurityEventItem[] = [
-  {
-    id: "sec_evt_01",
-    type: "UTR_DUPLICATE_ATTEMPT",
-    severity: "critical",
-    timestamp: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
-    ipAddress: "103.21.244.18",
-    details: "Blocked attempt to reuse already settled UTR #423019827361 on a new order",
-    orderNumber: "ORD-2026-979",
-    utr: "423019827361",
-    status: "BLOCKED",
-  },
-  {
-    id: "sec_evt_02",
-    type: "INVALID_UTR_FORMAT",
-    severity: "medium",
-    timestamp: new Date(Date.now() - 1000 * 60 * 360).toISOString(),
-    ipAddress: "49.36.120.4",
-    details: "Rejected malformed 8-digit UTR input; strictly 12 digits required by NPCI standard",
-    orderNumber: "ORD-2026-977",
-    utr: "12345678",
-    status: "BLOCKED",
-  },
-  {
-    id: "sec_evt_03",
-    type: "RATE_LIMIT_EXCEEDED",
-    severity: "high",
-    timestamp: new Date(Date.now() - 1000 * 60 * 720).toISOString(),
-    ipAddress: "182.74.88.2",
-    details: "IP exceeded rate limit of 60 order creations/minute. Cooldown enforced.",
-    status: "BLOCKED",
-  },
-];
+let securityLogs: SecurityEventItem[] = [];
 
 let roundRobinCounter = 0;
 
@@ -203,19 +98,19 @@ function selectRoutedBank(requestedBankId?: string, amount: number = 0): BankAcc
 
   const activeBanks = bankAccounts.filter((b) => b.isActive);
   if (activeBanks.length === 0) {
-    // Fallback to primary or first
+    // Fallback to merchant profile VPA if no bank accounts configured yet
     return bankAccounts[0] || {
-      id: "bank_fallback",
-      bankName: "ICICI Bank",
+      id: "bank_default",
+      bankName: "Primary Bank",
       accountHolder: merchantProfile.businessName,
-      accountNumber: "919876543210",
-      ifsc: "ICIC0000102",
+      accountNumber: "000000000000",
+      ifsc: "SBIN0000000",
       vpa: merchantProfile.vpa,
-      qrTitle: "Default VPA",
+      qrTitle: "Primary VPA",
       qrType: "dynamic_intent",
       isPrimary: true,
       isActive: true,
-      dailyLimit: 500000,
+      dailyLimit: 1000000,
       dailyVolume: 0,
       totalSettled: 0,
       routingWeight: 1,
@@ -257,87 +152,9 @@ function buildUpiUri(vpa: string, name: string, amount: number, orderNo: string,
   return `upi://pay?pa=${vpa.trim()}&pn=${encName}&am=${amount.toFixed(2)}&cu=INR&tn=${encNote}&tr=${encTr}`;
 }
 
-const orders: OrderItem[] = [
-  {
-    id: "ord_live_89102",
-    orderNumber: "ORD-2026-981",
-    amount: 1499.0,
-    currency: "INR",
-    customerName: "Aarav Sharma",
-    customerEmail: "aarav@example.com",
-    customerPhone: "+91 98230 11223",
-    note: "E-Commerce Purchase #981",
-    merchantVpa: "9tepay.business@icici",
-    merchantName: "9tepay Merchant Services",
-    status: "PAID",
-    utrNumber: "423019827361",
-    upiString: buildUpiUri("9tepay.business@icici", "9tepay Merchant Services", 1499.0, "ORD-2026-981", "E-Commerce Purchase #981"),
-    createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-    expiresAt: new Date(Date.now() + 1000 * 60 * 300).toISOString(),
-    paidAt: new Date(Date.now() - 1000 * 60 * 40).toISOString(),
-    callbackUrl: "https://shop.example.com/success",
-    webhookDelivered: true,
-  },
-  {
-    id: "ord_live_89103",
-    orderNumber: "ORD-2026-982",
-    amount: 499.0,
-    currency: "INR",
-    customerName: "Priya Patel",
-    customerEmail: "priya@example.com",
-    customerPhone: "+91 98760 54321",
-    note: "Monthly Starter Subscription",
-    merchantVpa: "9tepay.business@icici",
-    merchantName: "9tepay Merchant Services",
-    status: "PAID",
-    utrNumber: "423089761234",
-    upiString: buildUpiUri("9tepay.business@icici", "9tepay Merchant Services", 499.0, "ORD-2026-982", "Monthly Starter Subscription"),
-    createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-    expiresAt: new Date(Date.now() + 1000 * 60 * 200).toISOString(),
-    paidAt: new Date(Date.now() - 1000 * 60 * 115).toISOString(),
-    callbackUrl: "https://shop.example.com/success",
-    webhookDelivered: true,
-  },
-  {
-    id: "ord_live_89104",
-    orderNumber: "ORD-2026-983",
-    amount: 2850.0,
-    currency: "INR",
-    customerName: "Vikram Malhotra",
-    customerEmail: "vikram@example.com",
-    customerPhone: "+91 97110 33445",
-    note: "Custom Electronics Kit",
-    merchantVpa: "9tepay.business@icici",
-    merchantName: "9tepay Merchant Services",
-    status: "PENDING",
-    upiString: buildUpiUri("9tepay.business@icici", "9tepay Merchant Services", 2850.0, "ORD-2026-983", "Custom Electronics Kit"),
-    createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-    expiresAt: new Date(Date.now() + 1000 * 60 * 10).toISOString(),
-    callbackUrl: "https://shop.example.com/success",
-    webhookDelivered: false,
-  },
-];
+const orders: OrderItem[] = [];
 
-const webhookLogs: any[] = [
-  {
-    id: "wh_log_01",
-    orderId: "ord_live_89102",
-    timestamp: new Date(Date.now() - 1000 * 60 * 40).toISOString(),
-    status: "DELIVERED",
-    url: merchantProfile.webhookUrl,
-    statusCode: 200,
-    payload: {
-      event: "payment.success",
-      order_id: "ORD-2026-981",
-      amount: 1499.0,
-      currency: "INR",
-      status: "PAID",
-      utr: "423019827361",
-      customer: "Aarav Sharma",
-    },
-    response: '{"success":true,"message":"Order updated"}',
-  },
-];
+const webhookLogs: any[] = [];
 
 // --- Admin & Multi-Merchant State ---
 interface MerchantListItem {
@@ -356,141 +173,184 @@ interface MerchantListItem {
   createdAt: string;
 }
 
-let merchantsList: MerchantListItem[] = [
-  {
-    id: "merch_live_01",
-    businessName: "9tepay Merchant Services",
-    ownerName: "Abhay Sharma",
-    email: "merchant@9tepay.com",
-    phone: "+91 98765 43210",
-    vpa: "9tepay.business@icici",
-    bankAccount: "919876543210",
-    ifsc: "ICIC0000102",
-    commissionRate: 0.0,
-    status: "active",
-    totalVolume: 4848.0,
-    totalOrders: 3,
-    createdAt: "2026-08-01T10:00:00.000Z",
-  },
-  {
-    id: "merch_live_02",
-    businessName: "PayIndia QuickPay Global",
-    ownerName: "Rajesh Singhania",
-    email: "support@payindia.in",
-    phone: "+91 98123 45678",
-    vpa: "payindia.settle@hdfcbank",
-    bankAccount: "50100234567890",
-    ifsc: "HDFC0000060",
-    commissionRate: 0.8,
-    status: "active",
-    totalVolume: 34200.0,
-    totalOrders: 18,
-    createdAt: "2026-08-10T12:30:00.000Z",
-  },
-  {
-    id: "merch_live_03",
-    businessName: "Apex Tech Digital Services",
-    ownerName: "Neha Kapoor",
-    email: "neha@apextech.io",
-    phone: "+91 97788 11223",
-    vpa: "apextech@okaxis",
-    bankAccount: "91800293847291",
-    ifsc: "UTIB0000142",
-    commissionRate: 1.2,
-    status: "pending_kyc",
-    totalVolume: 0.0,
-    totalOrders: 0,
-    createdAt: "2026-08-25T09:15:00.000Z",
-  },
-  {
-    id: "merch_live_04",
-    businessName: "FastCart Retail Goods",
-    ownerName: "Kunal Mehra",
-    email: "billing@fastcart.shop",
-    phone: "+91 99887 76655",
-    vpa: "fastcart.pay@sbi",
-    bankAccount: "304958672019",
-    ifsc: "SBIN0000456",
-    commissionRate: 1.5,
-    status: "suspended",
-    totalVolume: 15400.0,
-    totalOrders: 9,
-    createdAt: "2026-07-15T14:40:00.000Z",
-  },
-];
+let merchantsList: MerchantListItem[] = [];
 
-let currentUser = {
-  id: "usr_merchant_01",
-  name: "Abhay Sharma",
-  email: "merchant@9tepay.com",
-  phone: "+91 98765 43210",
-  role: "merchant" as "merchant" | "admin",
-  businessName: "9tepay Merchant Services",
-  vpa: "9tepay.business@icici",
-  status: "active" as "active" | "suspended" | "pending_kyc",
-  createdAt: "2026-08-01T10:00:00.000Z",
+let merchantKyc = {
+  status: "approved" as "unsubmitted" | "pending" | "approved" | "rejected",
+  details: {
+    companyName: "My Business Gateway",
+    registeredAddress: "Connaught Place, New Delhi, India",
+    businessType: "Private Limited",
+    gstNumber: "07AABCM1234F1Z5",
+    companyPan: "AABCM1234F",
+    directorAadhaar: "1234 5678 9012",
+    directorPan: "XYZPR5678K",
+    photograph: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
+    submittedAt: new Date().toISOString(),
+  },
 };
 
-// --- Auth Routes (/auth/login.php & /auth/register.php) ---
-app.get("/api/auth/me", (_req, res) => {
-  res.json({ user: currentUser, session: "payindia_session_active" });
-});
+let currentUser = {
+  id: "usr_merchant_new",
+  name: "My Business",
+  email: "merchant@mybusiness.com",
+  phone: "+91 98765 43210",
+  role: "merchant" as "merchant" | "admin",
+  businessName: "My Business Gateway",
+  vpa: "yourname@upi",
+  status: "active" as "active" | "suspended" | "pending_kyc",
+  createdAt: new Date().toISOString(),
+};
 
-app.post("/api/auth/login", (req, res) => {
-  const { emailOrPhone, password, role } = req.body;
-  
-  if (role === "admin" || emailOrPhone === "admin@demotry.shop") {
-    currentUser = {
+// --- Auth Routes with Email OTP 2FA ---
+const pendingOtps = new Map<string, { otp: string; expires: number; userData: any }>();
+
+app.post("/api/auth/send-otp", (req, res) => {
+  const { email, role } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: "Email address is required for 2FA OTP." });
+  }
+
+  const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+  const expires = Date.now() + 5 * 60 * 1000; // 5 mins
+
+  let userData: any = null;
+  if (role === "admin" || email === "admin@demotry.shop") {
+    userData = {
       id: "usr_admin_001",
       name: "Master Administrator",
       email: "admin@demotry.shop",
       phone: "+91 90000 00001",
       role: "admin",
-      businessName: "Demotry Payment Systems",
+      businessName: "Payment Systems Admin",
       vpa: "admin.gateway@icici",
       status: "active",
       createdAt: "2026-01-01T00:00:00.000Z",
     };
-    return res.json({ success: true, user: currentUser, token: "payindia_session_admin_live" });
-  }
-
-  // Find merchant
-  const found = merchantsList.find(
-    (m) => m.email.toLowerCase() === emailOrPhone?.toLowerCase() || m.phone === emailOrPhone
-  );
-
-  if (found) {
-    currentUser = {
-      id: found.id,
-      name: found.ownerName,
-      email: found.email,
-      phone: found.phone,
-      role: "merchant",
-      businessName: found.businessName,
-      vpa: found.vpa,
-      status: found.status,
-      createdAt: found.createdAt,
-    };
-    merchantProfile.businessName = found.businessName;
-    merchantProfile.vpa = found.vpa;
-    merchantProfile.email = found.email;
-    merchantProfile.phone = found.phone;
   } else {
-    // Default demo login
-    currentUser = {
-      id: "usr_merchant_01",
-      name: "Abhay Sharma",
-      email: emailOrPhone || "merchant@demotry.shop",
-      phone: "+91 98765 43210",
-      role: "merchant",
-      businessName: merchantProfile.businessName,
-      vpa: merchantProfile.vpa,
-      status: "active",
-      createdAt: "2026-08-01T10:00:00.000Z",
-    };
+    const found = merchantsList.find((m) => m.email.toLowerCase() === email.toLowerCase());
+    if (found) {
+      userData = {
+        id: found.id,
+        name: found.ownerName,
+        email: found.email,
+        phone: found.phone,
+        role: "merchant",
+        businessName: found.businessName,
+        vpa: found.vpa,
+        status: found.status,
+        createdAt: found.createdAt,
+      };
+    } else {
+      userData = {
+        id: `usr_${Math.random().toString(36).substring(2, 8)}`,
+        name: email.split('@')[0],
+        email: email,
+        phone: "+91 98765 43210",
+        role: "merchant",
+        businessName: "My Merchant Store",
+        vpa: "mybusiness@upi",
+        status: "active",
+        createdAt: new Date().toISOString(),
+      };
+    }
   }
 
-  res.json({ success: true, user: currentUser, token: "payindia_session_merchant_live" });
+  pendingOtps.set(email.toLowerCase(), { otp: generatedOtp, expires, userData });
+
+  // In production simulated environment, we return the OTP in response or log it
+  console.log(`[2FA Email OTP] Sent OTP ${generatedOtp} to ${email}`);
+  res.json({
+    success: true,
+    message: `2FA verification code sent to ${email}. (Sandbox OTP: ${generatedOtp})`,
+    sandboxOtp: generatedOtp,
+  });
+});
+
+app.post("/api/auth/verify-otp", (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) {
+    return res.status(400).json({ error: "Email and 6-digit OTP code are required." });
+  }
+
+  const record = pendingOtps.get(email.toLowerCase());
+  if (!record) {
+    return res.status(400).json({ error: "No active OTP request found for this email. Please request a new code." });
+  }
+
+  if (Date.now() > record.expires) {
+    pendingOtps.delete(email.toLowerCase());
+    return res.status(400).json({ error: "OTP code has expired. Please request a new code." });
+  }
+
+  if (record.otp !== otp.trim()) {
+    return res.status(400).json({ error: "Invalid 2FA OTP verification code. Please check and try again." });
+  }
+
+  // Success!
+  pendingOtps.delete(email.toLowerCase());
+  currentUser = record.userData;
+  if (currentUser.role === "merchant") {
+    merchantProfile.businessName = currentUser.businessName;
+    merchantProfile.vpa = currentUser.vpa;
+    merchantProfile.email = currentUser.email;
+    merchantProfile.phone = currentUser.phone;
+  }
+
+  res.json({
+    success: true,
+    message: "2FA Authentication successful",
+    user: currentUser,
+    token: `session_${currentUser.role}_${Date.now()}`,
+  });
+});
+
+app.get("/api/auth/me", (_req, res) => {
+  res.json({ user: currentUser, session: currentUser ? "payindia_session_active" : null });
+});
+
+app.post("/api/auth/logout", (_req, res) => {
+  currentUser = null;
+  res.json({ success: true, message: "Logged out successfully" });
+});
+
+app.get("/api/merchant/kyc", (_req, res) => {
+  res.json(merchantKyc);
+});
+
+app.post("/api/merchant/kyc", (req, res) => {
+  const { companyName, registeredAddress, businessType, gstNumber, companyPan, directorAadhaar, directorPan, photograph } = req.body;
+  if (!companyName || !gstNumber || !companyPan || !directorAadhaar || !directorPan) {
+    return res.status(400).json({ error: "Company name, GST number, company PAN, Director Aadhaar, and Director PAN are required." });
+  }
+
+  merchantKyc = {
+    status: "approved",
+    details: {
+      companyName: companyName.trim(),
+      registeredAddress: registeredAddress?.trim() || "",
+      businessType: businessType || "Private Limited",
+      gstNumber: gstNumber.trim().toUpperCase(),
+      companyPan: companyPan.trim().toUpperCase(),
+      directorAadhaar: directorAadhaar.trim(),
+      directorPan: directorPan.trim().toUpperCase(),
+      photograph: photograph || "",
+      submittedAt: new Date().toISOString(),
+    },
+  };
+
+  if (currentUser) {
+    currentUser.status = "active";
+    currentUser.businessName = companyName.trim();
+  }
+  merchantProfile.businessName = companyName.trim();
+
+  res.json({ success: true, message: "KYC verification submitted and approved successfully!", kyc: merchantKyc });
+});
+
+app.post("/api/auth/login", (req, res) => {
+  const { emailOrPhone } = req.body;
+  res.status(400).json({ error: "Please use the 2FA Email OTP login flow." });
 });
 
 app.post("/api/auth/register", (req, res) => {
@@ -623,6 +483,9 @@ app.get("/api/merchant/bank-accounts", (_req, res) => {
 });
 
 app.post("/api/merchant/bank-accounts", (req, res) => {
+  if (currentUser?.role === "merchant" && merchantKyc.status !== "approved") {
+    return res.status(403).json({ error: "KYC verification is required before adding bank accounts. Please submit your company & director KYC." });
+  }
   const { bankName, accountHolder, accountNumber, ifsc, vpa, qrTitle, qrType, qrColor, customQrImage, dailyLimit, routingWeight } = req.body;
 
   if (!bankName || !accountNumber || !ifsc || !vpa) {
@@ -812,6 +675,9 @@ app.get("/api/orders", (_req, res) => {
 
 // Create Order (Simulates `POST /api/create-order` endpoint from Lolapay/PayIndia documentation)
 app.post("/api/orders", (req, res) => {
+  if (currentUser?.role === "merchant" && merchantKyc.status !== "approved") {
+    return res.status(403).json({ error: "KYC verification is required before starting payment collection. Please complete your KYC verification." });
+  }
   const { amount, orderId, customerName, customerEmail, customerPhone, note, callbackUrl, bankAccountId } = req.body;
 
   if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
