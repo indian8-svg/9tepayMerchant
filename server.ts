@@ -187,121 +187,66 @@ let currentUser = {
   createdAt: new Date().toISOString(),
 };
 
-// --- Auth Routes with Email OTP 2FA ---
-const pendingOtps = new Map<string, { otp: string; expires: number; userData: any }>();
+// --- Auth Routes (/auth/login.php & /auth/register.php) ---
+app.get("/api/auth/me", (_req, res) => {
+  res.json({ user: currentUser, session: "payindia_session_active" });
+});
 
-app.post("/api/auth/send-otp", (req, res) => {
-  const { email, role } = req.body;
-  if (!email) {
-    return res.status(400).json({ error: "Email address is required for 2FA OTP." });
-  }
-
-  const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expires = Date.now() + 5 * 60 * 1000; // 5 mins
-
-  let userData: any = null;
-  if (role === "admin" || email === "admin@demotry.shop") {
-    userData = {
+app.post("/api/auth/login", (req, res) => {
+  const { emailOrPhone, password, role } = req.body;
+  
+  if (role === "admin" || emailOrPhone === "admin@demotry.shop") {
+    currentUser = {
       id: "usr_admin_001",
       name: "Master Administrator",
       email: "admin@demotry.shop",
       phone: "+91 90000 00001",
       role: "admin",
-      businessName: "Payment Systems Admin",
+      businessName: "Demotry Payment Systems",
       vpa: "admin.gateway@icici",
       status: "active",
       createdAt: "2026-01-01T00:00:00.000Z",
     };
+    return res.json({ success: true, user: currentUser, token: "payindia_session_admin_live" });
+  }
+
+  // Find merchant
+  const found = merchantsList.find(
+    (m) => m.email.toLowerCase() === emailOrPhone?.toLowerCase() || m.phone === emailOrPhone
+  );
+
+  if (found) {
+    currentUser = {
+      id: found.id,
+      name: found.ownerName,
+      email: found.email,
+      phone: found.phone,
+      role: "merchant",
+      businessName: found.businessName,
+      vpa: found.vpa,
+      status: found.status,
+      createdAt: found.createdAt,
+    };
+    merchantProfile.businessName = found.businessName;
+    merchantProfile.vpa = found.vpa;
+    merchantProfile.email = found.email;
+    merchantProfile.phone = found.phone;
   } else {
-    const found = merchantsList.find((m) => m.email.toLowerCase() === email.toLowerCase());
-    if (found) {
-      userData = {
-        id: found.id,
-        name: found.ownerName,
-        email: found.email,
-        phone: found.phone,
-        role: "merchant",
-        businessName: found.businessName,
-        vpa: found.vpa,
-        status: found.status,
-        createdAt: found.createdAt,
-      };
-    } else {
-      userData = {
-        id: `usr_${Math.random().toString(36).substring(2, 8)}`,
-        name: email.split('@')[0],
-        email: email,
-        phone: "+91 98765 43210",
-        role: "merchant",
-        businessName: "My Merchant Store",
-        vpa: "mybusiness@upi",
-        status: "active",
-        createdAt: new Date().toISOString(),
-      };
-    }
+    // Default demo login
+    currentUser = {
+      id: "usr_merchant_01",
+      name: "Abhay Sharma",
+      email: emailOrPhone || "merchant@demotry.shop",
+      phone: "+91 98765 43210",
+      role: "merchant",
+      businessName: merchantProfile.businessName,
+      vpa: merchantProfile.vpa,
+      status: "active",
+      createdAt: "2026-08-01T10:00:00.000Z",
+    };
   }
 
-  pendingOtps.set(email.toLowerCase(), { otp: generatedOtp, expires, userData });
-
-  // In production simulated environment, we return the OTP in response or log it
-  console.log(`[2FA Email OTP] Sent OTP ${generatedOtp} to ${email}`);
-  res.json({
-    success: true,
-    message: `2FA verification code sent to ${email}. (Sandbox OTP: ${generatedOtp})`,
-    sandboxOtp: generatedOtp,
-  });
-});
-
-app.post("/api/auth/verify-otp", (req, res) => {
-  const { email, otp } = req.body;
-  if (!email || !otp) {
-    return res.status(400).json({ error: "Email and 6-digit OTP code are required." });
-  }
-
-  const record = pendingOtps.get(email.toLowerCase());
-  if (!record) {
-    return res.status(400).json({ error: "No active OTP request found for this email. Please request a new code." });
-  }
-
-  if (Date.now() > record.expires) {
-    pendingOtps.delete(email.toLowerCase());
-    return res.status(400).json({ error: "OTP code has expired. Please request a new code." });
-  }
-
-  if (record.otp !== otp.trim()) {
-    return res.status(400).json({ error: "Invalid 2FA OTP verification code. Please check and try again." });
-  }
-
-  // Success!
-  pendingOtps.delete(email.toLowerCase());
-  currentUser = record.userData;
-  if (currentUser.role === "merchant") {
-    merchantProfile.businessName = currentUser.businessName;
-    merchantProfile.vpa = currentUser.vpa;
-    merchantProfile.email = currentUser.email;
-    merchantProfile.phone = currentUser.phone;
-  }
-
-  res.json({
-    success: true,
-    message: "2FA Authentication successful",
-    user: currentUser,
-    token: `session_${currentUser.role}_${Date.now()}`,
-  });
-});
-
-app.get("/api/auth/me", (_req, res) => {
-  res.json({ user: currentUser, session: currentUser ? "payindia_session_active" : null });
-});
-
-app.post("/api/auth/logout", (_req, res) => {
-  currentUser = null;
-  res.json({ success: true, message: "Logged out successfully" });
-});
-
-app.post("/api/auth/login", (req, res) => {
-  const { emailOrPhone } = req.body;
-  res.status(400).json({ error: "Please use the 2FA Email OTP login flow." });
+  res.json({ success: true, user: currentUser, token: "payindia_session_merchant_live" });
 });
 
 app.post("/api/auth/register", (req, res) => {
