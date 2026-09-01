@@ -12,7 +12,7 @@ export function generateUpiString(config: UpilinkConfig): string {
   const cleanNote = encodeURIComponent(note?.trim() || `Order ${orderNumber}`);
   const cleanTr = encodeURIComponent(orderNumber.trim());
 
-  // Clean standard NPCI P2P/P2M compatible string without forcing restricted merchant codes
+  // Clean standard NPCI P2P/P2M compatible string
   return `upi://pay?pa=${cleanVpa}&pn=${cleanName}&am=${cleanAmount}&cu=INR&tn=${cleanNote}&tr=${cleanTr}`;
 }
 
@@ -23,22 +23,36 @@ export interface AppDeeplinks {
   paytm: string;
   bhim: string;
   cred: string;
+  gpayIntent: string;
+  phonepeIntent: string;
+  paytmIntent: string;
+  bhimIntent: string;
+  credIntent: string;
 }
 
 /**
- * Generates app-specific intent deeplinks for one-click mobile app switching
+ * Generates app-specific intent deeplinks for 1-click mobile app launching
  */
 export function generateAppDeeplinks(config: UpilinkConfig): AppDeeplinks {
   const baseUpi = generateUpiString(config);
   const params = baseUpi.replace('upi://pay?', '');
 
+  const universal = `upi://pay?${params}`;
+
   return {
-    generic: `upi://pay?${params}`,
-    gpay: `tez://upi/pay?${params}`,
-    phonepe: `phonepe://pay?${params}`,
-    paytm: `paytmmp://pay?${params}`,
-    bhim: `bhim://pay?${params}`,
-    cred: `credpay://upi/pay?${params}`,
+    generic: universal,
+    // Native app scheme fallbacks & universal links
+    gpay: universal,
+    phonepe: universal,
+    paytm: universal,
+    bhim: universal,
+    cred: universal,
+    // Android Package Intent format (launches specific app directly in Android Chrome)
+    gpayIntent: `intent://pay?${params}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end;`,
+    phonepeIntent: `intent://pay?${params}#Intent;scheme=upi;package=com.phonepe.app;end;`,
+    paytmIntent: `intent://pay?${params}#Intent;scheme=upi;package=net.one97.paytm;end;`,
+    bhimIntent: `intent://pay?${params}#Intent;scheme=upi;package=in.org.npci.upiapp;end;`,
+    credIntent: `intent://pay?${params}#Intent;scheme=upi;package=com.dreamplug.androidapp;end;`,
   };
 }
 
