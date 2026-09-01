@@ -442,14 +442,29 @@ export function App() {
         setOrders((prev) => {
           const map = new Map<string, Order>();
           prev.forEach((o) => map.set(o.id, o));
+
           ordersRes.data.forEach((o: Order) => {
-            const existing = map.get(o.id);
-            // Don't downgrade PAID order to PENDING
-            if (!existing || existing.status === 'PENDING' || o.status === 'PAID') {
+            // Check if existing item matches by ID or orderNumber
+            const existingKey = Array.from(map.keys()).find(
+              (k) => k === o.id || map.get(k)?.orderNumber === o.orderNumber
+            );
+            const existing = existingKey ? map.get(existingKey) : undefined;
+
+            if (existing) {
+              const merged: Order = {
+                ...existing,
+                ...o,
+                utrNumber: o.utrNumber || existing.utrNumber,
+                status: o.status === 'PAID' ? 'PAID' : existing.status === 'PAID' ? 'PAID' : o.status,
+                reviewRequired: o.reviewRequired ?? existing.reviewRequired,
+              };
+              if (existingKey) map.set(existingKey, merged);
+              map.set(o.id, merged);
+            } else {
               map.set(o.id, o);
             }
           });
-          const merged = Array.from(map.values());
+          const merged = Array.from(new Set(map.values()));
           try { localStorage.setItem('9tepay_orders', JSON.stringify(merged)); } catch {}
           return merged;
         });
@@ -542,6 +557,10 @@ export function App() {
 
   useEffect(() => {
     refreshAll();
+    const pollInterval = setInterval(() => {
+      refreshAll();
+    }, 3000);
+    return () => clearInterval(pollInterval);
   }, []);
 
   useEffect(() => {

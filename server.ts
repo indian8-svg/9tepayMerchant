@@ -1176,17 +1176,25 @@ app.get("/api/orders/:id", (req, res) => {
 // Verify / Confirm Payment (with Anti-Fraud Duplicate UTR and Format Guard)
 const handleVerifyOrderRequest = (req: express.Request, res: express.Response) => {
   try {
-    const id = req.params.id || req.body?.orderId || req.body?.id || "ord_checkout";
+    const paramId = req.params.id;
+    const bodyOrderId = req.body?.orderId || req.body?.id;
+    const bodyOrderNumber = req.body?.orderNumber;
     const { utr, simulate, utrNumber } = req.body || {};
     const inputUtr = utr || utrNumber;
 
-    let order = orders.find((o) => o.id === id || o.orderNumber === id);
+    let order = orders.find(
+      (o) =>
+        (paramId && (o.id === paramId || o.orderNumber === paramId || safeLower(o.id) === safeLower(paramId) || safeLower(o.orderNumber) === safeLower(paramId))) ||
+        (bodyOrderId && (o.id === bodyOrderId || o.orderNumber === bodyOrderId || safeLower(o.id) === safeLower(bodyOrderId) || safeLower(o.orderNumber) === safeLower(bodyOrderId))) ||
+        (bodyOrderNumber && (o.id === bodyOrderNumber || o.orderNumber === bodyOrderNumber || safeLower(o.id) === safeLower(bodyOrderNumber) || safeLower(o.orderNumber) === safeLower(bodyOrderNumber)))
+    );
 
     // Dynamically recover/create order if missing from memory due to serverless cold start
     if (!order) {
-      const fallbackOrderNumber = String(id).startsWith("ORD-") ? String(id) : `ORD-${String(id).slice(-6)}`;
+      const fallbackId = paramId || bodyOrderId || "ord_checkout";
+      const fallbackOrderNumber = String(fallbackId).startsWith("ORD-") ? String(fallbackId) : `ORD-${String(fallbackId).slice(-6)}`;
       order = {
-        id: String(id),
+        id: String(fallbackId),
         orderNumber: fallbackOrderNumber,
         amount: Number(req.body?.amount) || 1.0,
         currency: "INR",
@@ -1276,12 +1284,24 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
       }
     }
 
+    // Sync utrNumber and reviewRequired status across all order aliases in memory
+    orders.forEach((o) => {
+      if (o.id === order.id || o.orderNumber === order.orderNumber || (order.id && o.id === order.id)) {
+        o.utrNumber = finalUtr;
+        if (!merchantProfile.autoApproveUtr && !simulate) {
+          o.status = "PENDING";
+          (o as any).reviewRequired = true;
+        } else {
+          o.status = "PAID";
+          o.paidAt = new Date().toISOString();
+          o.webhookDelivered = true;
+          (o as any).reviewRequired = false;
+        }
+      }
+    });
+
     // If auto approve is disabled by merchant, set order to reviewRequired pending merchant approval
     if (!merchantProfile.autoApproveUtr && !simulate) {
-      order.status = "PENDING";
-      order.utrNumber = finalUtr;
-      (order as any).reviewRequired = true;
-
       return res.json({
         success: true,
         message: "UTR submitted successfully. Awaiting merchant approval.",

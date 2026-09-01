@@ -214,6 +214,54 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
     }
   };
 
+  const getQrFile = async (): Promise<File | null> => {
+    try {
+      if (uploadedQrImage && qrViewMode === 'uploaded_standee') {
+        const response = await fetch(uploadedQrImage);
+        const blob = await response.blob();
+        return new File([blob], `UPI_QR_${order.orderNumber}.png`, { type: 'image/png' });
+      }
+
+      const svgElement = document.querySelector('.qr-code-svg-container svg') as SVGElement;
+      if (!svgElement) return null;
+
+      const svgData = new XMLSerializer().serializeToString(svgElement);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+
+      return new Promise<File | null>((resolve) => {
+        img.onload = () => {
+          canvas.width = 400;
+          canvas.height = 400;
+          if (ctx) {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, 400, 400);
+            ctx.drawImage(img, 20, 20, 360, 360);
+          }
+          canvas.toBlob((blob) => {
+            URL.revokeObjectURL(url);
+            if (blob) {
+              resolve(new File([blob], `UPI_QR_${order.orderNumber}.png`, { type: 'image/png' }));
+            } else {
+              resolve(null);
+            }
+          }, 'image/png');
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve(null);
+        };
+        img.src = url;
+      });
+    } catch (err) {
+      console.warn('Error generating QR file:', err);
+      return null;
+    }
+  };
+
   const handleShareQr = async (appName: string = 'Google Pay') => {
     // 1. Copy VPA for immediate pasting fallback
     try {
@@ -224,18 +272,33 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
       setTimeout(() => setCopiedVpa(false), 3000);
     } catch {}
 
-    // 2. Download / export QR code image file
-    handleDownloadQr();
+    // 2. Generate actual QR image File
+    const qrFile = await getQrFile();
 
-    // 3. Web Share API invocation
-    if (navigator.share) {
+    // 3. Web Share API invocation with File object (shares actual QR image)
+    if (navigator.share && qrFile) {
       try {
-        await navigator.share({
-          title: `Pay ₹${order.amount.toFixed(2)} - ${order.merchantName}`,
+        const shareData: ShareData = {
+          title: `UPI QR Code - ₹${order.amount.toFixed(2)}`,
           text: `Scan QR in ${appName} or PhonePe/Paytm/BHIM to pay ₹${order.amount.toFixed(2)}. UPI VPA: ${order.merchantVpa}`,
-          url: window.location.href,
-        });
-      } catch {}
+          files: [qrFile],
+        };
+
+        if (navigator.canShare && navigator.canShare({ files: [qrFile] })) {
+          await navigator.share(shareData);
+        } else {
+          handleDownloadQr();
+          await navigator.share({
+            title: `Pay ₹${order.amount.toFixed(2)} - ${order.merchantName}`,
+            text: `Scan QR in ${appName} or PhonePe/Paytm/BHIM to pay ₹${order.amount.toFixed(2)}. UPI VPA: ${order.merchantVpa}`,
+          });
+        }
+      } catch (err) {
+        console.warn('Share error or canceled:', err);
+      }
+    } else {
+      // Fallback: download QR PNG
+      handleDownloadQr();
     }
 
     // 4. Open share QR step-by-step guidance modal
