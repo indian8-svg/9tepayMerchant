@@ -68,6 +68,9 @@ interface OrderItem {
   customQrImage?: string;
   status: "PENDING" | "PAID" | "EXPIRED" | "FAILED";
   utrNumber?: string;
+  reviewRequired?: boolean;
+  provider?: string;
+  paymentApp?: string;
   upiString: string;
   createdAt: string;
   expiresAt: string;
@@ -299,6 +302,51 @@ function buildUpiUri(vpa: string, name: string, amount: number, orderNo: string,
 
 const orders: OrderItem[] = [
   {
+    id: "ORD202609014326F5",
+    orderNumber: "ORD202609014326F5",
+    amount: 1.0,
+    currency: "INR",
+    customerName: "Aka",
+    customerEmail: "aka@example.com",
+    customerPhone: "+91 98000 11223",
+    note: "Order Payment",
+    merchantVpa: "9tepay.business@icici",
+    merchantName: "9tepay Merchant Services",
+    status: "PENDING",
+    utrNumber: "128840801306",
+    reviewRequired: true,
+    provider: "MANUAL_UPI",
+    paymentApp: "UPI",
+    upiString: buildUpiUri("9tepay.business@icici", "9tepay Merchant Services", 1.0, "ORD202609014326F5", "Order Payment"),
+    createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+    expiresAt: new Date(Date.now() + 1000 * 60 * 60).toISOString(),
+    callbackUrl: "https://demotry.shop/success",
+    webhookDelivered: false,
+  },
+  {
+    id: "ORD20260829871057",
+    orderNumber: "ORD20260829871057",
+    amount: 1.0,
+    currency: "INR",
+    customerName: "Great service&#039;s",
+    customerEmail: "service@example.com",
+    customerPhone: "+91 98765 00000",
+    note: "Order Settlement",
+    merchantVpa: "9tepay.business@icici",
+    merchantName: "9tepay Merchant Services",
+    status: "PAID",
+    utrNumber: "128710573986",
+    reviewRequired: false,
+    provider: "MANUAL_UPI",
+    paymentApp: "UPI",
+    upiString: buildUpiUri("9tepay.business@icici", "9tepay Merchant Services", 1.0, "ORD20260829871057", "Order Settlement"),
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
+    expiresAt: new Date(Date.now() - 1000 * 60 * 60 * 70).toISOString(),
+    paidAt: new Date(Date.now() - 1000 * 60 * 60 * 71).toISOString(),
+    callbackUrl: "https://demotry.shop/success",
+    webhookDelivered: true,
+  },
+  {
     id: "ord_live_89102",
     orderNumber: "ORD-2026-981",
     amount: 1499.0,
@@ -311,50 +359,14 @@ const orders: OrderItem[] = [
     merchantName: "9tepay Merchant Services",
     status: "PAID",
     utrNumber: "423019827361",
+    provider: "MANUAL_UPI",
+    paymentApp: "UPI",
     upiString: buildUpiUri("9tepay.business@icici", "9tepay Merchant Services", 1499.0, "ORD-2026-981", "E-Commerce Purchase #981"),
     createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
     expiresAt: new Date(Date.now() + 1000 * 60 * 300).toISOString(),
     paidAt: new Date(Date.now() - 1000 * 60 * 40).toISOString(),
     callbackUrl: "https://shop.example.com/success",
     webhookDelivered: true,
-  },
-  {
-    id: "ord_live_89103",
-    orderNumber: "ORD-2026-982",
-    amount: 499.0,
-    currency: "INR",
-    customerName: "Priya Patel",
-    customerEmail: "priya@example.com",
-    customerPhone: "+91 98760 54321",
-    note: "Monthly Starter Subscription",
-    merchantVpa: "9tepay.business@icici",
-    merchantName: "9tepay Merchant Services",
-    status: "PAID",
-    utrNumber: "423089761234",
-    upiString: buildUpiUri("9tepay.business@icici", "9tepay Merchant Services", 499.0, "ORD-2026-982", "Monthly Starter Subscription"),
-    createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-    expiresAt: new Date(Date.now() + 1000 * 60 * 200).toISOString(),
-    paidAt: new Date(Date.now() - 1000 * 60 * 115).toISOString(),
-    callbackUrl: "https://shop.example.com/success",
-    webhookDelivered: true,
-  },
-  {
-    id: "ord_live_89104",
-    orderNumber: "ORD-2026-983",
-    amount: 2850.0,
-    currency: "INR",
-    customerName: "Vikram Malhotra",
-    customerEmail: "vikram@example.com",
-    customerPhone: "+91 97110 33445",
-    note: "Custom Electronics Kit",
-    merchantVpa: "9tepay.business@icici",
-    merchantName: "9tepay Merchant Services",
-    status: "PENDING",
-    upiString: buildUpiUri("9tepay.business@icici", "9tepay Merchant Services", 2850.0, "ORD-2026-983", "Custom Electronics Kit"),
-    createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-    expiresAt: new Date(Date.now() + 1000 * 60 * 10).toISOString(),
-    callbackUrl: "https://shop.example.com/success",
-    webhookDelivered: false,
   },
 ];
 
@@ -1305,6 +1317,97 @@ app.post("/api/orders/:id/verify", (req, res) => {
       error: err?.message || "Server error verifying transaction. Please try again.",
       code: "INTERNAL_SERVER_ERROR",
     });
+  }
+});
+
+// Approve Order / UTR (Merchant Action)
+app.post("/api/orders/:id/approve", (req, res) => {
+  try {
+    const { id } = req.params;
+    let order = orders.find((o) => o.id === id || o.orderNumber === id);
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    const finalUtr = order.utrNumber || req.body?.utr || `4${Math.floor(10000000000 + Math.random() * 90000000000)}`;
+    order.status = "PAID";
+    order.utrNumber = finalUtr;
+    order.paidAt = new Date().toISOString();
+    order.webhookDelivered = true;
+    (order as any).reviewRequired = false;
+
+    // Update bank account stats
+    const targetBank = bankAccounts.find((b) => b.id === order?.bankAccountId || b.vpa === order?.merchantVpa);
+    if (targetBank) {
+      targetBank.dailyVolume += order.amount;
+      targetBank.totalSettled += order.amount;
+    }
+
+    // Webhook log
+    const newLog = {
+      id: `wh_log_${Date.now().toString().slice(-6)}`,
+      orderId: order.id,
+      timestamp: new Date().toISOString(),
+      status: "DELIVERED",
+      url: merchantProfile.webhookUrl,
+      statusCode: 200,
+      payload: {
+        event: "payment.success",
+        order_id: order.orderNumber,
+        amount: order.amount,
+        currency: "INR",
+        status: "PAID",
+        utr: finalUtr,
+        customer: order.customerName,
+        timestamp: order.paidAt,
+        approved_by: "MERCHANT_MANUAL",
+      },
+      response: '{"status":"OK","received":true}',
+    };
+    webhookLogs.unshift(newLog);
+
+    return res.json({
+      success: true,
+      message: "Payment successfully approved and marked as settled.",
+      order,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || "Server error approving order" });
+  }
+});
+
+// Reject / Fail Order (Merchant Action)
+app.post("/api/orders/:id/reject", (req, res) => {
+  try {
+    const { id } = req.params;
+    let order = orders.find((o) => o.id === id || o.orderNumber === id);
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    order.status = "FAILED";
+    (order as any).reviewRequired = false;
+
+    const secEvt: SecurityEventItem = {
+      id: `sec_evt_${Date.now().toString().slice(-6)}`,
+      type: "INVALID_UTR_FORMAT",
+      severity: "medium",
+      timestamp: new Date().toISOString(),
+      ipAddress: "127.0.0.1",
+      details: `Merchant rejected UTR reference #${order.utrNumber || "N/A"} for Order #${order.orderNumber}. Marked as FAILED.`,
+      orderNumber: order.orderNumber,
+      utr: order.utrNumber,
+      status: "BLOCKED",
+    };
+    securityLogs.unshift(secEvt);
+
+    return res.json({
+      success: true,
+      message: "Order marked as FAILED and UTR rejected.",
+      order,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || "Server error rejecting order" });
   }
 });
 

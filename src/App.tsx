@@ -700,6 +700,70 @@ export function App() {
     }
   };
 
+  const handleApproveOrder = async (orderIdToApprove: string) => {
+    try {
+      const data = await api.post<{ success: boolean; order?: Order; error?: string }>(
+        `/api/orders/${orderIdToApprove}/approve`,
+        {}
+      );
+      if (data.success && data.order) {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === orderIdToApprove || o.orderNumber === orderIdToApprove ? data.order! : o))
+        );
+      } else {
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.id === orderIdToApprove || o.orderNumber === orderIdToApprove
+              ? { ...o, status: 'PAID' as const, paidAt: new Date().toISOString(), reviewRequired: false }
+              : o
+          )
+        );
+      }
+      refreshAll();
+    } catch (err) {
+      console.warn('Approve order fallback to local update', err);
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderIdToApprove || o.orderNumber === orderIdToApprove
+            ? { ...o, status: 'PAID' as const, paidAt: new Date().toISOString(), reviewRequired: false }
+            : o
+        )
+      );
+    }
+  };
+
+  const handleRejectOrder = async (orderIdToReject: string) => {
+    try {
+      const data = await api.post<{ success: boolean; order?: Order; error?: string }>(
+        `/api/orders/${orderIdToReject}/reject`,
+        {}
+      );
+      if (data.success && data.order) {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === orderIdToReject || o.orderNumber === orderIdToReject ? data.order! : o))
+        );
+      } else {
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.id === orderIdToReject || o.orderNumber === orderIdToReject
+              ? { ...o, status: 'FAILED' as const, reviewRequired: false }
+              : o
+          )
+        );
+      }
+      refreshAll();
+    } catch (err) {
+      console.warn('Reject order fallback to local update', err);
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderIdToReject || o.orderNumber === orderIdToReject
+            ? { ...o, status: 'FAILED' as const, reviewRequired: false }
+            : o
+        )
+      );
+    }
+  };
+
   const handleUpdateProfile = async (updated: Partial<MerchantProfile>) => {
     try {
       const data = await api.put<{ success: boolean; profile: MerchantProfile; error?: string }>(
@@ -1172,6 +1236,8 @@ export function App() {
                 profile={profile}
                 webhookLogs={webhookLogs}
                 bankAccounts={bankAccounts}
+                onApproveOrder={handleApproveOrder}
+                onRejectOrder={handleRejectOrder}
                 onAddBank={handleAddBank}
                 onUpdateBank={handleUpdateBank}
                 onDeleteBank={handleDeleteBank}

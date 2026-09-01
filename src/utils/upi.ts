@@ -9,20 +9,21 @@ export function generateUpiString(config: UpilinkConfig): string {
   const cleanVpa = merchantVpa.trim();
   const cleanName = encodeURIComponent(merchantName.trim());
   const cleanAmount = Number(amount).toFixed(2);
-  const cleanNote = encodeURIComponent(note?.trim() || `${orderNumber}`);
+  const cleanNote = encodeURIComponent(note?.trim() || `Order ${orderNumber}`);
 
-  // Clean NPCI URI without forcing restricted merchant transaction parameters (tr/mc)
-  // This allows Paytm, PhonePe, Google Pay & BHIM to process payments for both personal and merchant VPAs without "unverified merchant" errors.
+  // Clean NPCI Standard UPI Link (Without illegal mc=0000 which triggers 'unverified merchant' in Paytm/PhonePe)
   return `upi://pay?pa=${cleanVpa}&pn=${cleanName}&am=${cleanAmount}&cu=INR&tn=${cleanNote}`;
 }
 
 export interface AppDeeplinks {
   generic: string;
+  cleanP2p: string;
   gpay: string;
   phonepe: string;
   paytm: string;
   bhim: string;
   cred: string;
+  whatsapp: string;
   gpayIntent: string;
   phonepeIntent: string;
   paytmIntent: string;
@@ -34,25 +35,34 @@ export interface AppDeeplinks {
  * Generates app-specific intent deeplinks for 1-click mobile app launching
  */
 export function generateAppDeeplinks(config: UpilinkConfig): AppDeeplinks {
-  const baseUpi = generateUpiString(config);
-  const params = baseUpi.replace('upi://pay?', '');
+  const { merchantVpa, merchantName, amount, orderNumber, note } = config;
+  const cleanVpa = merchantVpa.trim();
+  const cleanName = encodeURIComponent(merchantName.trim());
+  const cleanAmount = Number(amount).toFixed(2);
+  const cleanNote = encodeURIComponent(note?.trim() || `Order ${orderNumber}`);
+  
+  // Clean P2P params (compatible with all personal and merchant VPAs without intent blocks)
+  const cleanParams = `pa=${cleanVpa}&pn=${cleanName}&am=${cleanAmount}&cu=INR&tn=${cleanNote}`;
+  const pureParams = `pa=${cleanVpa}&pn=${cleanName}&am=${cleanAmount}&cu=INR`;
 
-  const universal = `upi://pay?${params}`;
+  const universal = `upi://pay?${cleanParams}`;
 
   return {
     generic: universal,
-    // Native app scheme fallbacks & universal links
-    gpay: universal,
-    phonepe: universal,
-    paytm: universal,
-    bhim: universal,
-    cred: universal,
+    cleanP2p: `upi://pay?${pureParams}`,
+    // Native app scheme deep links for iOS & Android
+    gpay: `tez://upi/pay?${cleanParams}`,
+    phonepe: `phonepe://pay?${cleanParams}`,
+    paytm: `paytmmp://pay?${cleanParams}`,
+    bhim: `in.org.npci.upiapp://pay?${cleanParams}`,
+    cred: `cred://pay?${cleanParams}`,
+    whatsapp: `whatsapp://pay?${cleanParams}`,
     // Android Package Intent format (launches specific app directly in Android Chrome)
-    gpayIntent: `intent://pay?${params}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end;`,
-    phonepeIntent: `intent://pay?${params}#Intent;scheme=upi;package=com.phonepe.app;end;`,
-    paytmIntent: `intent://pay?${params}#Intent;scheme=upi;package=net.one97.paytm;end;`,
-    bhimIntent: `intent://pay?${params}#Intent;scheme=upi;package=in.org.npci.upiapp;end;`,
-    credIntent: `intent://pay?${params}#Intent;scheme=upi;package=com.dreamplug.androidapp;end;`,
+    gpayIntent: `intent://pay?${cleanParams}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end;`,
+    phonepeIntent: `intent://pay?${cleanParams}#Intent;scheme=upi;package=com.phonepe.app;end;`,
+    paytmIntent: `intent://pay?${cleanParams}#Intent;scheme=upi;package=net.one97.paytm;end;`,
+    bhimIntent: `intent://pay?${cleanParams}#Intent;scheme=upi;package=in.org.npci.upiapp;end;`,
+    credIntent: `intent://pay?${cleanParams}#Intent;scheme=upi;package=com.dreamplug.androidapp;end;`,
   };
 }
 

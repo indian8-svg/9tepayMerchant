@@ -25,6 +25,7 @@ import {
   Smartphone,
   ShieldCheck,
   ShieldAlert,
+  UserCheck,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -42,12 +43,16 @@ import { Order, MerchantProfile, WebhookLog, BankAccountQR, BankRoutingStrategy,
 import { formatCurrency } from '../utils/upi';
 import { BankAccountsManager } from './BankAccountsManager';
 import { SecurityCenterPanel } from './SecurityCenterPanel';
+import { TransactionsManager } from './TransactionsManager';
+import { CustomersManager } from './CustomersManager';
 
 interface MerchantDashboardProps {
   orders: Order[];
   profile: MerchantProfile;
   webhookLogs: WebhookLog[];
   bankAccounts?: BankAccountQR[];
+  onApproveOrder?: (orderId: string) => Promise<void>;
+  onRejectOrder?: (orderId: string) => Promise<void>;
   onAddBank?: (bank: Partial<BankAccountQR>) => Promise<void>;
   onUpdateBank?: (id: string, bank: Partial<BankAccountQR>) => Promise<void>;
   onDeleteBank?: (id: string) => Promise<void>;
@@ -69,6 +74,8 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
   profile,
   webhookLogs,
   bankAccounts = [],
+  onApproveOrder = async () => {},
+  onRejectOrder = async () => {},
   onAddBank = async () => {},
   onUpdateBank = async () => {},
   onDeleteBank = async () => {},
@@ -84,7 +91,7 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
   onRegenerateKeys,
   onTriggerTestWebhook,
 }) => {
-  const [activeTab, setActiveTab] = useState<'orders' | 'banks' | 'security' | 'analytics' | 'api' | 'webhooks' | 'settings'>('orders');
+  const [activeTab, setActiveTab] = useState<'transactions' | 'customers' | 'orders' | 'banks' | 'security' | 'analytics' | 'api' | 'webhooks' | 'settings'>('transactions');
   const [orderFilter, setOrderFilter] = useState<'ALL' | 'PAID' | 'PENDING' | 'EXPIRED'>('ALL');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -322,6 +329,28 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
       <div className="flex items-center justify-between border-b border-slate-200 pb-2">
         <div className="flex flex-wrap items-center gap-1.5">
           <button
+            onClick={() => setActiveTab('transactions')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'transactions'
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <CreditCard className="w-3.5 h-3.5" />
+            <span>Transactions &amp; UTR Approval ({orders.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('customers')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'customers'
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <UserCheck className="w-3.5 h-3.5" />
+            <span>Customers</span>
+          </button>
+          <button
             onClick={() => setActiveTab('orders')}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               activeTab === 'orders'
@@ -329,7 +358,7 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            Orders Ledger ({orders.length})
+            Orders Ledger
           </button>
           <button
             onClick={() => setActiveTab('banks')}
@@ -407,6 +436,21 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
           <span>New Payment</span>
         </button>
       </div>
+
+      {/* TAB 1: Transactions & UTR Approval */}
+      {activeTab === 'transactions' && (
+        <TransactionsManager
+          orders={orders}
+          onApproveOrder={onApproveOrder}
+          onRejectOrder={onRejectOrder}
+          onOpenCheckout={onOpenCheckout}
+        />
+      )}
+
+      {/* TAB 1B: Customer Directory */}
+      {activeTab === 'customers' && (
+        <CustomersManager orders={orders} />
+      )}
 
       {/* TAB 2: Multiple Bank Accounts & QR Fleet */}
       {activeTab === 'banks' && (

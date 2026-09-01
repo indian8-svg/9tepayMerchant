@@ -52,6 +52,9 @@ export interface Order {
   customQrImage?: string;
   status: OrderStatus;
   utrNumber?: string;
+  reviewRequired?: boolean;
+  paymentApp?: string;
+  provider?: string;
   upiString: string;
   createdAt: string;
   expiresAt: string;

@@ -21,6 +21,7 @@ import {
   QrCode,
   Eye,
   X,
+  Zap,
 } from 'lucide-react';
 import { Order, BankAccountQR, User } from '../types';
 import { generateAppDeeplinks, formatCurrency } from '../utils/upi';
@@ -69,7 +70,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
   const [intentGuideApp, setIntentGuideApp] = useState<string | null>(null);
 
   const handleAppIntentClick = (appName: string, targetUrl: string, e: React.MouseEvent) => {
-    // 1. Copy VPA to clipboard automatically
+    // 1. Copy VPA to clipboard automatically so user can paste if app requires manual entry
     try {
       if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(order.merchantVpa);
@@ -78,11 +79,16 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
       setTimeout(() => setCopiedVpa(false), 3000);
     } catch {}
 
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    // 2. Trigger native location launch
+    try {
+      window.location.href = targetUrl;
+    } catch (err) {
+      console.warn('Unable to navigate directly to intent URL', err);
+    }
 
+    // 3. Show guide modal if on desktop or if user needs fallback context
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     if (!isMobile) {
-      // On desktop browsers (or iframe preview), prevent default scheme navigation error and show guidance modal
-      e.preventDefault();
       setIntentGuideApp(appName);
     }
   };
@@ -474,6 +480,16 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                   <ExternalLink className="w-3.5 h-3.5 ml-auto opacity-70" />
                 </a>
 
+                <a
+                  href={deeplinks.cleanP2p}
+                  onClick={(e) => handleAppIntentClick('Pure P2P Intent', deeplinks.cleanP2p, e)}
+                  className="px-3.5 py-3 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0 shadow-sm"
+                  title="Direct P2P Link (Bypasses Merchant Intent Block)"
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Pure P2P Link</span>
+                </a>
+
                 <button
                   type="button"
                   onClick={handleCopyUpiString}
@@ -488,31 +504,31 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                   ) : (
                     <>
                       <Copy className="w-3.5 h-3.5 text-slate-500" />
-                      <span>Copy Intent Link</span>
+                      <span>Copy Intent</span>
                     </>
                   )}
                 </button>
               </div>
 
               {/* App-Specific Intent Badges */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-1">
                 {/* Google Pay */}
                 <a
                   href={deeplinks.gpayIntent}
                   onClick={(e) => handleAppIntentClick('Google Pay', deeplinks.gpayIntent, e)}
-                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 p-2.5 rounded-xl flex items-center gap-2 text-xs font-semibold text-slate-800 transition-all cursor-pointer group"
+                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 p-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-slate-800 transition-all cursor-pointer group shadow-2xs"
                 >
                   <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-black text-[10px]">
                     G
                   </div>
-                  <span>Google Pay</span>
+                  <span>GPay</span>
                 </a>
 
                 {/* PhonePe */}
                 <a
                   href={deeplinks.phonepeIntent}
                   onClick={(e) => handleAppIntentClick('PhonePe', deeplinks.phonepeIntent, e)}
-                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 p-2.5 rounded-xl flex items-center gap-2 text-xs font-semibold text-slate-800 transition-all cursor-pointer group"
+                  className="bg-slate-50 hover:bg-slate-100 border border-purple-200 p-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-purple-900 transition-all cursor-pointer group shadow-2xs"
                 >
                   <div className="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-black text-[10px]">
                     Pe
@@ -520,12 +536,11 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                   <span>PhonePe</span>
                 </a>
 
-                {/* Paytm Standard Open */}
+                {/* Paytm */}
                 <a
                   href={deeplinks.paytmIntent}
                   onClick={(e) => handleAppIntentClick('Paytm', deeplinks.paytmIntent, e)}
-                  className="bg-slate-50 hover:bg-slate-100 border border-cyan-300 p-2.5 rounded-xl flex items-center gap-2 text-xs font-semibold text-cyan-800 transition-all cursor-pointer group"
-                  title="Pay via Paytm Standard UPI"
+                  className="bg-slate-50 hover:bg-slate-100 border border-cyan-300 p-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-cyan-900 transition-all cursor-pointer group shadow-2xs"
                 >
                   <div className="w-5 h-5 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center font-black text-[10px]">
                     Py
@@ -533,16 +548,40 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                   <span>Paytm</span>
                 </a>
 
-                {/* BHIM / Cred */}
+                {/* BHIM UPI */}
                 <a
                   href={deeplinks.bhimIntent}
                   onClick={(e) => handleAppIntentClick('BHIM UPI', deeplinks.bhimIntent, e)}
-                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 p-2.5 rounded-xl flex items-center gap-2 text-xs font-semibold text-slate-800 transition-all cursor-pointer group"
+                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 p-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-slate-800 transition-all cursor-pointer group shadow-2xs"
                 >
                   <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-[10px]">
                     BH
                   </div>
-                  <span>BHIM UPI</span>
+                  <span>BHIM</span>
+                </a>
+
+                {/* CRED */}
+                <a
+                  href={deeplinks.credIntent}
+                  onClick={(e) => handleAppIntentClick('CRED', deeplinks.credIntent, e)}
+                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 p-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-slate-800 transition-all cursor-pointer group shadow-2xs"
+                >
+                  <div className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center font-black text-[10px]">
+                    CR
+                  </div>
+                  <span>CRED</span>
+                </a>
+
+                {/* WhatsApp Pay */}
+                <a
+                  href={deeplinks.whatsapp}
+                  onClick={(e) => handleAppIntentClick('WhatsApp Pay', deeplinks.whatsapp, e)}
+                  className="bg-slate-50 hover:bg-slate-100 border border-emerald-200 p-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-emerald-800 transition-all cursor-pointer group shadow-2xs"
+                >
+                  <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center font-black text-[10px]">
+                    WA
+                  </div>
+                  <span>WhatsApp</span>
                 </a>
               </div>
 
