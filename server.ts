@@ -121,7 +121,7 @@ let merchantProfile = {
   apiSecret: "sk_live_65a7d903e14fbc9081",
   webhookUrl: "https://shop.example.com/api/webhook/upi-callback",
   webhookSecret: "whsec_live_99a8b7c6d5e4f3a2",
-  autoApproveUtr: true,
+  autoApproveUtr: false, // Requires merchant to click Approve in Merchant Dashboard before order becomes PAID
   settlementRate: 0.0,
   routingStrategy: "smart_round_robin" as "smart_round_robin" | "primary_only" | "limit_aware" | "manual",
   requireStrictUtrFormat: true,
@@ -1274,6 +1274,21 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
           code: "DUPLICATE_UTR_REJECTED",
         });
       }
+    }
+
+    // If auto approve is disabled by merchant, set order to reviewRequired pending merchant approval
+    if (!merchantProfile.autoApproveUtr && !simulate) {
+      order.status = "PENDING";
+      order.utrNumber = finalUtr;
+      (order as any).reviewRequired = true;
+
+      return res.json({
+        success: true,
+        message: "UTR submitted successfully. Awaiting merchant approval.",
+        isAwaitingApproval: true,
+        order,
+        utr: finalUtr,
+      });
     }
 
     order.status = "PAID";

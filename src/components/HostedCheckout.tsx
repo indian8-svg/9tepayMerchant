@@ -22,6 +22,8 @@ import {
   Eye,
   X,
   Zap,
+  Share2,
+  Loader2,
 } from 'lucide-react';
 import { Order, BankAccountQR, User } from '../types';
 import { generateAppDeeplinks, formatCurrency } from '../utils/upi';
@@ -68,6 +70,37 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
   );
 
   const [intentGuideApp, setIntentGuideApp] = useState<string | null>(null);
+  const [showQrShareModal, setShowQrShareModal] = useState<string | null>(null);
+  const [submittedUtr, setSubmittedUtr] = useState<string>(initialOrder.utrNumber || '');
+  const [isAwaitingApproval, setIsAwaitingApproval] = useState<boolean>(
+    Boolean(initialOrder.utrNumber && initialOrder.status !== 'PAID')
+  );
+
+  // Background status polling (checks every 2s for merchant approval)
+  useEffect(() => {
+    if (order.status === 'PAID') return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await safeFetch<Order>(`/api/orders/${order.id}`);
+        if (res.ok && res.data) {
+          if (res.data.status === 'PAID') {
+            setOrder(res.data);
+            setIsAwaitingApproval(false);
+            onPaymentSuccess(res.data);
+          } else if (res.data.utrNumber || (res.data as any).reviewRequired) {
+            setIsAwaitingApproval(true);
+            if (res.data.utrNumber && !submittedUtr) {
+              setSubmittedUtr(res.data.utrNumber);
+              setUtrInput(res.data.utrNumber);
+            }
+          }
+        }
+      } catch {}
+    }, 2000);
+
+    return () => clearInterval(pollInterval);
+  }, [order.id, order.status, submittedUtr, onPaymentSuccess]);
 
   const handleAppIntentClick = (appName: string, targetUrl: string, e: React.MouseEvent) => {
     // 1. Copy VPA to clipboard automatically so user can paste if app requires manual entry
@@ -148,7 +181,65 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
       link.href = uploadedQrImage;
       link.download = `QR_${order.orderNumber}_${order.merchantName.replace(/\s+/g, '_')}.png`;
       link.click();
+    } else {
+      // Trigger SVG canvas export if standard QR
+      try {
+        const svgElement = document.querySelector('.qr-code-svg-container svg') as SVGElement;
+        if (svgElement) {
+          const svgData = new XMLSerializer().serializeToString(svgElement);
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const img = new Image();
+          const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+          const url = URL.createObjectURL(svgBlob);
+          img.onload = () => {
+            canvas.width = 400;
+            canvas.height = 400;
+            if (ctx) {
+              ctx.fillStyle = '#FFFFFF';
+              ctx.fillRect(0, 0, 400, 400);
+              ctx.drawImage(img, 20, 20, 360, 360);
+            }
+            const a = document.createElement('a');
+            a.download = `UPI_QR_${order.orderNumber}.png`;
+            a.href = canvas.toDataURL('image/png');
+            a.click();
+            URL.revokeObjectURL(url);
+          };
+          img.src = url;
+        }
+      } catch (err) {
+        console.warn('QR canvas download fallback:', err);
+      }
     }
+  };
+
+  const handleShareQr = async (appName: string = 'Google Pay') => {
+    // 1. Copy VPA for immediate pasting fallback
+    try {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(order.merchantVpa).catch(() => {});
+      }
+      setCopiedVpa(true);
+      setTimeout(() => setCopiedVpa(false), 3000);
+    } catch {}
+
+    // 2. Download / export QR code image file
+    handleDownloadQr();
+
+    // 3. Web Share API invocation
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Pay ₹${order.amount.toFixed(2)} - ${order.merchantName}`,
+          text: `Scan QR in ${appName} or PhonePe/Paytm/BHIM to pay ₹${order.amount.toFixed(2)}. UPI VPA: ${order.merchantVpa}`,
+          url: window.location.href,
+        });
+      } catch {}
+    }
+
+    // 4. Open share QR step-by-step guidance modal
+    setShowQrShareModal(appName);
   };
 
   const handleVerifyUtr = async (e?: React.FormEvent) => {
@@ -160,28 +251,38 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
     setVerificationError('');
 
     try {
-      const res = await safeFetch<{ success: boolean; order?: Order; error?: string; message?: string }>(
-        `/api/orders/${order.id}/verify`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            utr: cleanUtr,
-            orderId: order.id,
-            amount: order.amount,
-            customerName: order.customerName,
-          }),
-        }
-      );
+      const res = await safeFetch<{
+        success: boolean;
+        order?: Order;
+        error?: string;
+        message?: string;
+        isAwaitingApproval?: boolean;
+      }>(`/api/orders/${order.id}/verify`, {
+        method: 'POST',
+        body: JSON.stringify({
+          utr: cleanUtr,
+          orderId: order.id,
+          amount: order.amount,
+          customerName: order.customerName,
+        }),
+      });
 
       if ((res.ok && res.data?.success) || res.data?.order) {
         const updatedOrder: Order = res.data?.order || {
           ...order,
-          status: 'PAID',
           utrNumber: cleanUtr,
-          paidAt: new Date().toISOString(),
+          status: 'PENDING',
         };
         setOrder(updatedOrder);
-        onPaymentSuccess(updatedOrder);
+        setSubmittedUtr(cleanUtr);
+
+        if (updatedOrder.status === 'PAID') {
+          setIsAwaitingApproval(false);
+          onPaymentSuccess(updatedOrder);
+        } else {
+          // UTR submitted - pending merchant approval
+          setIsAwaitingApproval(true);
+        }
       } else {
         let rawErr = res.data?.error || res.data?.message || res.error || 'Could not verify transaction.';
         if (typeof rawErr === 'string' && (rawErr.startsWith('{') || rawErr.startsWith('['))) {
@@ -191,31 +292,18 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
           } catch {}
         }
         const cleanErr = typeof rawErr === 'string' ? rawErr : JSON.stringify(rawErr);
-        
-        // If server 500 error occurred, fulfill locally so the user is not blocked
-        if (res.status === 500 || cleanErr.includes('500') || cleanErr.includes('server error')) {
-          const updatedOrder: Order = {
-            ...order,
-            status: 'PAID',
-            utrNumber: cleanUtr,
-            paidAt: new Date().toISOString(),
-          };
-          setOrder(updatedOrder);
-          onPaymentSuccess(updatedOrder);
-        } else {
+
+        if (cleanErr.includes('Duplicate UTR') || cleanErr.includes('Invalid UTR format')) {
           setVerificationError(cleanErr);
+        } else {
+          // Fallback to awaiting approval
+          setSubmittedUtr(cleanUtr);
+          setIsAwaitingApproval(true);
         }
       }
     } catch (err: any) {
-      // Fallback local verification if network error occurs
-      const updatedOrder: Order = {
-        ...order,
-        status: 'PAID',
-        utrNumber: cleanUtr,
-        paidAt: new Date().toISOString(),
-      };
-      setOrder(updatedOrder);
-      onPaymentSuccess(updatedOrder);
+      setSubmittedUtr(cleanUtr);
+      setIsAwaitingApproval(true);
     } finally {
       setIsVerifying(false);
     }
@@ -474,6 +562,39 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                     {copiedVpa ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </div>
+
+                {/* Share QR to UPI Apps */}
+                <div className="pt-2 space-y-1.5">
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleShareQr('Google Pay')}
+                      className="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-xs transition-all cursor-pointer active:scale-95"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span>Google Pay (Share QR)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleShareQr('PhonePe')}
+                      className="bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-xs transition-all cursor-pointer active:scale-95"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span>PhonePe</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleShareQr('Paytm')}
+                      className="bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-xs transition-all cursor-pointer active:scale-95"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span>Paytm</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 italic font-medium">
+                    (Scan this QR using PhonePe, GPay, Paytm, or BHIM App to pay)
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -650,12 +771,12 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                   2
                 </span>
                 <h4 className="text-sm font-bold text-slate-900">
-                  Confirm Payment via 12-Digit UTR
+                  Paid already? Submit UTR
                 </h4>
               </div>
 
               <p className="text-xs text-slate-600 leading-relaxed">
-                After completing the UPI transfer, enter the 12-digit UPI Transaction Reference (UTR / Ref ID) from your bank app to instantly confirm.
+                Enter the UPI transaction/reference number after completing payment.
               </p>
 
               <form onSubmit={handleVerifyUtr} className="space-y-3">
@@ -666,11 +787,18 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                   <input
                     type="text"
                     maxLength={16}
-                    value={utrInput}
+                    disabled={isAwaitingApproval || Boolean(submittedUtr && order.status !== 'PAID')}
+                    value={submittedUtr || utrInput}
                     onChange={(e) => setUtrInput(e.target.value.replace(/\s+/g, ''))}
                     placeholder="e.g. 423019827361"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 font-mono text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-400"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 font-mono text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-400 disabled:bg-slate-100 disabled:text-slate-700 disabled:cursor-not-allowed"
                   />
+                  {(isAwaitingApproval || (submittedUtr && order.status !== 'PAID')) && (
+                    <p className="text-xs text-emerald-700 font-semibold mt-1.5 flex items-center gap-1.5 animate-pulse">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Submitted — waiting for merchant approval.</span>
+                    </p>
+                  )}
                 </div>
 
                 {verificationError && (
@@ -682,7 +810,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
 
                 <button
                   type="submit"
-                  disabled={isVerifying || !utrInput}
+                  disabled={isVerifying || !utrInput || isAwaitingApproval || Boolean(submittedUtr && order.status !== 'PAID')}
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2.5 rounded-xl border border-slate-900 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                 >
                   {isVerifying ? (
@@ -690,12 +818,95 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                   ) : (
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                   )}
-                  <span>Submit & Verify UTR</span>
+                  <span>
+                    {isAwaitingApproval || (submittedUtr && order.status !== 'PAID')
+                      ? 'UTR Submitted — Awaiting Merchant Approval'
+                      : 'Submit UTR'}
+                  </span>
                 </button>
               </form>
             </div>
           </div>
         </div>
+        </div>
+      )}
+
+      {/* Floating Bottom Notification Badge: UTR submitted — awaiting merchant approval... */}
+      {(isAwaitingApproval || (submittedUtr && order.status !== 'PAID') || (order.utrNumber && order.status !== 'PAID')) && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 bg-amber-500 text-white font-semibold text-xs px-5 py-3 rounded-full shadow-2xl border border-amber-400/60 flex items-center gap-2.5 animate-bounce">
+          <div className="w-2.5 h-2.5 rounded-full bg-amber-200 animate-ping" />
+          <span>🟡 UTR submitted — awaiting merchant approval...</span>
+        </div>
+      )}
+
+      {/* Dedicated QR Share Guidance Modal */}
+      {showQrShareModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+          onClick={() => setShowQrShareModal(null)}
+        >
+          <div
+            className="bg-white border border-slate-200 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl relative text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2 text-left">
+                <div className="p-2 rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
+                  <Share2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">Share QR to {showQrShareModal}</h4>
+                  <p className="text-xs text-slate-500">Scan QR image directly in your UPI app</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowQrShareModal(null)}
+                className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* QR Preview in Modal */}
+            <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex items-center justify-center">
+              {uploadedQrImage && qrViewMode === 'uploaded_standee' ? (
+                <img src={uploadedQrImage} alt="QR Code" className="w-44 h-44 object-contain rounded-xl shadow-xs" />
+              ) : (
+                <div className="bg-white p-3 rounded-xl shadow-xs">
+                  <QRCodeSVG value={order.upiString} size={160} level="M" />
+                </div>
+              )}
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 space-y-2 text-left text-xs">
+              <div className="font-bold text-amber-900 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>How to Pay via QR Image in {showQrShareModal}:</span>
+              </div>
+              <ol className="list-decimal list-inside space-y-1.5 text-amber-900 text-[11px] font-medium pl-1">
+                <li>QR image downloaded &amp; UPI ID copied: <strong>{order.merchantVpa}</strong></li>
+                <li>Open <strong>{showQrShareModal}</strong> app on your mobile phone.</li>
+                <li>Tap <strong>"Scan QR Code"</strong> → select <strong>"Upload from Gallery/Photos"</strong>.</li>
+                <li>Select the QR image, complete payment of <strong>₹{order.amount.toFixed(2)}</strong>, and submit the 12-digit UTR!</li>
+              </ol>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleDownloadQr}
+                className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download QR PNG</span>
+              </button>
+              <button
+                onClick={() => setShowQrShareModal(null)}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all cursor-pointer shadow-xs"
+              >
+                <span>Done, Submit UTR</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
