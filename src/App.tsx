@@ -711,6 +711,12 @@ export function App() {
         )
       );
 
+      setSelectedOrder((prev) =>
+        prev && (prev.id === orderIdToApprove || prev.orderNumber === orderIdToApprove)
+          ? { ...prev, ...approvedOrder, status: 'PAID', paidAt: new Date().toISOString(), reviewRequired: false }
+          : prev
+      );
+
       // Local storage sync for cross-tab / checkout preview synchronization
       try {
         const storedStr = localStorage.getItem('9tepay_orders');
@@ -756,6 +762,11 @@ export function App() {
             : o
         )
       );
+      setSelectedOrder((prev) =>
+        prev && (prev.id === orderIdToApprove || prev.orderNumber === orderIdToApprove)
+          ? { ...prev, status: 'PAID' as const, paidAt: new Date().toISOString(), reviewRequired: false }
+          : prev
+      );
       window.dispatchEvent(
         new CustomEvent('order_approved', {
           detail: { orderId: orderIdToApprove, order: fallbackOrder },
@@ -775,6 +786,11 @@ export function App() {
         setOrders((prev) =>
           prev.map((o) => (o.id === orderIdToReject || o.orderNumber === orderIdToReject ? data.order! : o))
         );
+        setSelectedOrder((prev) =>
+          prev && (prev.id === orderIdToReject || prev.orderNumber === orderIdToReject)
+            ? data.order!
+            : prev
+        );
       } else {
         setOrders((prev) =>
           prev.map((o) =>
@@ -782,6 +798,11 @@ export function App() {
               ? { ...o, status: 'FAILED' as const, reviewRequired: false }
               : o
           )
+        );
+        setSelectedOrder((prev) =>
+          prev && (prev.id === orderIdToReject || prev.orderNumber === orderIdToReject)
+            ? { ...prev, status: 'FAILED' as const, reviewRequired: false }
+            : prev
         );
       }
       refreshAll();
@@ -793,6 +814,11 @@ export function App() {
             ? { ...o, status: 'FAILED' as const, reviewRequired: false }
             : o
         )
+      );
+      setSelectedOrder((prev) =>
+        prev && (prev.id === orderIdToReject || prev.orderNumber === orderIdToReject)
+          ? { ...prev, status: 'FAILED' as const, reviewRequired: false }
+          : prev
       );
     }
   };

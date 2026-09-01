@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   ShieldCheck,
@@ -75,6 +75,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
     uploadedQrImage ? 'uploaded_standee' : 'dynamic_vector'
   );
 
+  const qrContainerRef = useRef<HTMLDivElement>(null);
   const [intentGuideApp, setIntentGuideApp] = useState<string | null>(null);
   const [showQrShareModal, setShowQrShareModal] = useState<string | null>(null);
   const [submittedUtr, setSubmittedUtr] = useState<string>(initialOrder.utrNumber || '');
@@ -82,7 +83,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
     Boolean(initialOrder.utrNumber && initialOrder.status !== 'PAID')
   );
 
-  // Background status polling (checks every 1.5s for merchant approval)
+  // Background status polling (checks every 1s for instant merchant approval)
   useEffect(() => {
     if (order.status === 'PAID') return;
 
@@ -94,8 +95,8 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
           const storedOrders: Order[] = JSON.parse(storedStr);
           const found = storedOrders.find(
             (o) =>
-              o.id === order.id ||
-              o.orderNumber === order.orderNumber ||
+              (order.id && o.id === order.id) ||
+              (order.orderNumber && o.orderNumber === order.orderNumber) ||
               (order.id && o.id?.toLowerCase() === order.id?.toLowerCase()) ||
               (order.orderNumber && o.orderNumber?.toLowerCase() === order.orderNumber?.toLowerCase())
           );
@@ -110,24 +111,29 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
 
       // 2. Poll server endpoint
       try {
-        const res = await safeFetch<Order>(`/api/orders/${order.id}`);
+        const orderIdentifier = order.id || order.orderNumber;
+        if (!orderIdentifier) return;
+        const res = await safeFetch<Order>(`/api/orders/${orderIdentifier}`);
         if (res.ok && res.data) {
-          if (res.data.status === 'PAID') {
-            setOrder(res.data);
+          const fetchedOrder = (res.data as any).order || res.data;
+          if (fetchedOrder.status === 'PAID') {
+            setOrder(fetchedOrder);
             setIsAwaitingApproval(false);
-            onPaymentSuccess(res.data);
-          } else if (res.data.utrNumber || (res.data as any).reviewRequired) {
+            onPaymentSuccess(fetchedOrder);
+          } else if (fetchedOrder.utrNumber || (fetchedOrder as any).reviewRequired) {
             setIsAwaitingApproval(true);
-            if (res.data.utrNumber && !submittedUtr) {
-              setSubmittedUtr(res.data.utrNumber);
-              setUtrInput(res.data.utrNumber);
+            if (fetchedOrder.utrNumber && !submittedUtr) {
+              setSubmittedUtr(fetchedOrder.utrNumber);
+              setUtrInput(fetchedOrder.utrNumber);
             }
           }
         }
       } catch {}
     };
 
-    const pollInterval = setInterval(checkOrderStatus, 1500);
+    // Run check immediately, then poll every 1000ms
+    checkOrderStatus();
+    const pollInterval = setInterval(checkOrderStatus, 1000);
 
     // Instant cross-component event listener
     const handleOrderApproved = (e: any) => {
@@ -154,13 +160,23 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
       }
     };
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkOrderStatus();
+      }
+    };
+
     window.addEventListener('order_approved', handleOrderApproved);
     window.addEventListener('storage', checkOrderStatus);
+    window.addEventListener('focus', checkOrderStatus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       clearInterval(pollInterval);
       window.removeEventListener('order_approved', handleOrderApproved);
       window.removeEventListener('storage', checkOrderStatus);
+      window.removeEventListener('focus', checkOrderStatus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [order.id, order.orderNumber, order.status, submittedUtr, onPaymentSuccess]);
 
@@ -258,15 +274,18 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
   };
 
   const handleDownloadQr = () => {
-    if (uploadedQrImage) {
+    if (uploadedQrImage && qrViewMode === 'uploaded_standee') {
       const link = document.createElement('a');
       link.href = uploadedQrImage;
-      link.download = `QR_${order.orderNumber}_${order.merchantName.replace(/\s+/g, '_')}.png`;
+      link.download = `QR_${order.orderNumber || 'payment'}_${(order.merchantName || 'merchant').replace(/\s+/g, '_')}.png`;
       link.click();
     } else {
-      // Trigger SVG canvas export if standard QR
+      // Trigger SVG canvas export if dynamic QR
       try {
-        const svgElement = document.querySelector('.qr-code-svg-container svg') as SVGElement;
+        const svgElement =
+          qrContainerRef.current?.querySelector('svg') ||
+          (document.getElementById('main-checkout-qr-svg') as unknown as SVGElement) ||
+          (document.querySelector('.qr-code-svg-container svg') as unknown as SVGElement);
         if (svgElement) {
           const svgData = new XMLSerializer().serializeToString(svgElement);
           const canvas = document.createElement('canvas');
@@ -275,15 +294,15 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
           const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
           const url = URL.createObjectURL(svgBlob);
           img.onload = () => {
-            canvas.width = 400;
-            canvas.height = 400;
+            canvas.width = 512;
+            canvas.height = 512;
             if (ctx) {
               ctx.fillStyle = '#FFFFFF';
-              ctx.fillRect(0, 0, 400, 400);
-              ctx.drawImage(img, 20, 20, 360, 360);
+              ctx.fillRect(0, 0, 512, 512);
+              ctx.drawImage(img, 32, 32, 448, 448);
             }
             const a = document.createElement('a');
-            a.download = `UPI_QR_${order.orderNumber}.png`;
+            a.download = `UPI_QR_${order.orderNumber || 'payment'}.png`;
             a.href = canvas.toDataURL('image/png');
             a.click();
             URL.revokeObjectURL(url);
@@ -300,17 +319,29 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
     try {
       if (uploadedQrImage && qrViewMode === 'uploaded_standee') {
         try {
+          if (uploadedQrImage.startsWith('data:')) {
+            const arr = uploadedQrImage.split(',');
+            const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+            const bstr = atob(arr[1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while (n--) {
+              u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new File([u8arr], `UPI_QR_${order.orderNumber || 'payment'}.png`, { type: mime });
+          }
           const response = await fetch(uploadedQrImage);
           const blob = await response.blob();
-          return new File([blob], `UPI_QR_${order.orderNumber}.png`, { type: 'image/png' });
+          return new File([blob], `UPI_QR_${order.orderNumber || 'payment'}.png`, { type: 'image/png' });
         } catch {
-          // fetch might fail on cross-origin without CORS
+          // fallback if fetch fails
         }
       }
 
       const svgElement =
-        (document.querySelector('.qr-code-svg-container svg') as SVGElement) ||
-        (document.querySelector('svg') as SVGElement);
+        qrContainerRef.current?.querySelector('svg') ||
+        (document.getElementById('main-checkout-qr-svg') as unknown as SVGElement) ||
+        (document.querySelector('.qr-code-svg-container svg') as unknown as SVGElement);
       if (!svgElement) return null;
 
       const svgData = new XMLSerializer().serializeToString(svgElement);
@@ -322,17 +353,17 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
 
       return new Promise<File | null>((resolve) => {
         img.onload = () => {
-          canvas.width = 400;
-          canvas.height = 400;
+          canvas.width = 512;
+          canvas.height = 512;
           if (ctx) {
             ctx.fillStyle = '#FFFFFF';
-            ctx.fillRect(0, 0, 400, 400);
-            ctx.drawImage(img, 20, 20, 360, 360);
+            ctx.fillRect(0, 0, 512, 512);
+            ctx.drawImage(img, 32, 32, 448, 448);
           }
           canvas.toBlob((blob) => {
             URL.revokeObjectURL(url);
             if (blob) {
-              resolve(new File([blob], `UPI_QR_${order.orderNumber}.png`, { type: 'image/png' }));
+              resolve(new File([blob], `UPI_QR_${order.orderNumber || 'payment'}.png`, { type: 'image/png' }));
             } else {
               resolve(null);
             }
@@ -360,7 +391,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
       setTimeout(() => setCopiedVpa(false), 3000);
     } catch {}
 
-    // 2. Generate actual QR image File
+    // 2. Generate actual high-resolution QR image File
     const qrFile = await getQrFile();
 
     // 3. Web Share API invocation with File object (shares actual QR image file into native apps)
@@ -369,18 +400,20 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
         if (qrFile && navigator.canShare && navigator.canShare({ files: [qrFile] })) {
           await navigator.share({
             title: `UPI QR Code - ₹${order.amount.toFixed(2)}`,
-            text: `Scan QR in ${appName} or UPI app to pay ₹${order.amount.toFixed(2)}. UPI VPA: ${order.merchantVpa}`,
+            text: `Scan QR in ${appName} or any UPI app to pay ₹${order.amount.toFixed(2)}. UPI VPA: ${order.merchantVpa}`,
             files: [qrFile],
           });
           return;
         } else {
-          // Fallback share without file
+          // If files cannot be shared directly via navigator.share, download the image and share text
           handleDownloadQr();
-          await navigator.share({
-            title: `Pay ₹${order.amount.toFixed(2)} - ${order.merchantName}`,
-            text: `Scan QR in ${appName} or PhonePe/Paytm/BHIM to pay ₹${order.amount.toFixed(2)}. UPI VPA: ${order.merchantVpa}`,
-          });
-          return;
+          try {
+            await navigator.share({
+              title: `Pay ₹${order.amount.toFixed(2)} - ${order.merchantName}`,
+              text: `Scan QR code in ${appName} / PhonePe / Paytm to pay ₹${order.amount.toFixed(2)}. UPI VPA: ${order.merchantVpa}`,
+            });
+            return;
+          } catch {}
         }
       } catch (err: any) {
         if (err?.name === 'AbortError') return;
@@ -388,7 +421,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
       }
     }
 
-    // 4. Fallback: download QR PNG & open modal
+    // 4. Fallback for desktop / unsupported browsers: download QR PNG & open modal with scanner guide
     handleDownloadQr();
     setShowQrShareModal(appName);
   };
@@ -688,7 +721,10 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
 
               {/* QR Image Display Canvas */}
               <div className="relative group">
-                <div className="bg-white p-3.5 rounded-2xl shadow-md relative flex items-center justify-center min-w-[220px] min-h-[220px] max-w-[260px] overflow-hidden border-2 border-slate-200">
+                <div
+                  ref={qrContainerRef}
+                  className="qr-code-svg-container bg-white p-3.5 rounded-2xl shadow-md relative flex items-center justify-center min-w-[220px] min-h-[220px] max-w-[260px] overflow-hidden border-2 border-slate-200"
+                >
                   {uploadedQrImage && qrViewMode === 'uploaded_standee' ? (
                     <div className="relative flex items-center justify-center">
                       <img
@@ -700,6 +736,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                     </div>
                   ) : (
                     <QRCodeSVG
+                      id="main-checkout-qr-svg"
                       value={order.upiString}
                       size={200}
                       level="M"
@@ -1096,13 +1133,13 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                   <input
                     type="text"
                     maxLength={16}
-                    disabled={isAwaitingApproval || Boolean(submittedUtr && order.status !== 'PAID')}
+                    disabled={isAwaitingApproval || Boolean(submittedUtr)}
                     value={submittedUtr || utrInput}
                     onChange={(e) => setUtrInput(e.target.value.replace(/\s+/g, ''))}
                     placeholder="e.g. 423019827361"
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 font-mono text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-400 disabled:bg-slate-100 disabled:text-slate-700 disabled:cursor-not-allowed"
                   />
-                  {(isAwaitingApproval || (submittedUtr && order.status !== 'PAID')) && (
+                  {(isAwaitingApproval || Boolean(submittedUtr)) && (
                     <p className="text-xs text-emerald-700 font-semibold mt-1.5 flex items-center gap-1.5 animate-pulse">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                       <span>Submitted — waiting for merchant approval.</span>
@@ -1119,7 +1156,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
 
                 <button
                   type="submit"
-                  disabled={isVerifying || !utrInput || isAwaitingApproval || Boolean(submittedUtr && order.status !== 'PAID')}
+                  disabled={isVerifying || !utrInput || isAwaitingApproval || Boolean(submittedUtr)}
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2.5 rounded-xl border border-slate-900 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                 >
                   {isVerifying ? (
@@ -1128,7 +1165,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                   )}
                   <span>
-                    {isAwaitingApproval || (submittedUtr && order.status !== 'PAID')
+                    {isAwaitingApproval || Boolean(submittedUtr)
                       ? 'UTR Submitted — Awaiting Merchant Approval'
                       : 'Submit UTR'}
                   </span>

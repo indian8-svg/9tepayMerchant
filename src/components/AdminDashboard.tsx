@@ -127,9 +127,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ orders, onRefres
 
   const filteredMerchants = merchants.filter((m) => {
     const matchesSearch =
-      m.businessName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.vpa.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.email.toLowerCase().includes(searchTerm.toLowerCase());
+      (m.businessName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (m.vpa || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (m.email || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'ALL' || m.status === statusFilter;
     return matchesSearch && matchesStatus;
   });

@@ -495,7 +495,7 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
             const isRevealed = Boolean(revealedAccounts[bank.id]);
             const maskedAccount = isRevealed
               ? bank.accountNumber
-              : `•••• •••• ${bank.accountNumber.slice(-4)}`;
+              : bank.accountNumber ? `•••• •••• ${bank.accountNumber.slice(-4)}` : '•••• •••• ----';
             const usagePercent = Math.min(
               100,
               Math.round(((bank.dailyVolume || 0) / (bank.dailyLimit || 500000)) * 100)
@@ -527,7 +527,7 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        bank.bankName.slice(0, 2).toUpperCase()
+                        (bank.bankName || 'BA').slice(0, 2).toUpperCase()
                       )}
                     </div>
                     <div>
@@ -1105,7 +1105,7 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                   className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs"
                   style={{ backgroundColor: showQrModal.qrColor || '#10b981' }}
                 >
-                  {showQrModal.bankName.slice(0, 2).toUpperCase()}
+                  {(showQrModal.bankName || 'BA').slice(0, 2).toUpperCase()}
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">

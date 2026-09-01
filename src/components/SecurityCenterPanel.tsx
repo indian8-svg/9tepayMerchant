@@ -61,7 +61,8 @@ export const SecurityCenterPanel: React.FC<SecurityCenterPanelProps> = ({
   const handleGenerateHmac = () => {
     // Generate simulated HMAC
     const hash = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    setGeneratedSignature(`sha256=${hash}${webhookSecret.slice(-8)}`);
+    const secSuffix = webhookSecret ? webhookSecret.slice(-8) : 'sec9tepay';
+    setGeneratedSignature(`sha256=${hash}${secSuffix}`);
   };
 
   const filteredEvents = securityEvents.filter((evt) => {

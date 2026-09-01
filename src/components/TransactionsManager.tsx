@@ -58,9 +58,9 @@ export const TransactionsManager: React.FC<TransactionsManagerProps> = ({
     // Search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
-      const matchId = o.id.toLowerCase().includes(q) || o.orderNumber.toLowerCase().includes(q);
-      const matchCustomer = o.customerName.toLowerCase().includes(q) || (o.customerPhone && o.customerPhone.includes(q));
-      const matchUtr = o.utrNumber ? o.utrNumber.toLowerCase().includes(q) : false;
+      const matchId = (o.id || '').toLowerCase().includes(q) || (o.orderNumber || '').toLowerCase().includes(q);
+      const matchCustomer = (o.customerName || '').toLowerCase().includes(q) || (o.customerPhone ? o.customerPhone.includes(q) : false);
+      const matchUtr = o.utrNumber ? (o.utrNumber || '').toLowerCase().includes(q) : false;
       return matchId || matchCustomer || matchUtr;
     }
 

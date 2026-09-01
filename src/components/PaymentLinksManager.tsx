@@ -126,11 +126,11 @@ export const PaymentLinksManager: React.FC<PaymentLinksManagerProps> = ({
     const matchesFilter = statusFilter === 'ALL' || order.status === statusFilter;
     const matchesSearch =
       searchQuery === '' ||
-      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (order.note && order.note.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (order.utrNumber && order.utrNumber.toLowerCase().includes(searchQuery.toLowerCase()));
+      (order.id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (order.orderNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (order.customerName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (order.note ? order.note.toLowerCase().includes(searchQuery.toLowerCase()) : false) ||
+      (order.utrNumber ? order.utrNumber.toLowerCase().includes(searchQuery.toLowerCase()) : false);
     return matchesFilter && matchesSearch;
   });
 

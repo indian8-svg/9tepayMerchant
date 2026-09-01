@@ -67,13 +67,13 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
           <div className="flex items-center gap-4 sm:gap-5">
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/20 p-1 shrink-0 shadow-sm backdrop-blur-xs">
               <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center text-blue-700 font-black text-2xl sm:text-3xl shadow-xs">
-                {currentUser.name.charAt(0).toUpperCase()}
+                {(currentUser?.name || currentUser?.businessName || currentUser?.email || 'M').charAt(0).toUpperCase()}
               </div>
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                  {currentUser.name}
+                  {currentUser?.name || currentUser?.businessName || 'Merchant'}
                 </h1>
                 <span
                   className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
@@ -259,7 +259,7 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
                     <div>
                       <span className="text-[10px] text-slate-400">Account Number</span>
                       <p className="font-mono font-bold text-slate-900">
-                        {showAccountNo ? primaryBank.accountNumber : `••••••••${primaryBank.accountNumber.slice(-4)}`}
+                        {primaryBank.accountNumber ? (showAccountNo ? primaryBank.accountNumber : `••••••••${primaryBank.accountNumber.slice(-4)}`) : '••••••••'}
                       </p>
                     </div>
                     <button

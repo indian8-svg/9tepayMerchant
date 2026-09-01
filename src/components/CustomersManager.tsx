@@ -50,7 +50,7 @@ export const CustomersManager: React.FC<CustomersManagerProps> = ({ orders }) =>
   const customersList = Array.from(customersMap.values()).filter((c) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
-    return c.name.toLowerCase().includes(q) || c.phone.toLowerCase().includes(q);
+    return (c.name || '').toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q);
   });
 
   const formatDate = (dateStr: string) => {
