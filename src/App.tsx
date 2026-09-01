@@ -687,22 +687,68 @@ export function App() {
         `/api/orders/${orderIdToApprove}/approve`,
         {}
       );
-      if (data.success && data.order) {
-        setOrders((prev) =>
-          prev.map((o) => (o.id === orderIdToApprove || o.orderNumber === orderIdToApprove ? data.order! : o))
+      const approvedOrder: Order = data.order || {
+        id: orderIdToApprove,
+        orderNumber: orderIdToApprove,
+        amount: 1.0,
+        currency: 'INR',
+        customerName: 'Customer',
+        merchantVpa: profile.vpa,
+        merchantName: profile.businessName,
+        status: 'PAID',
+        paidAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        reviewRequired: false,
+        upiString: '',
+        createdAt: new Date().toISOString(),
+      };
+
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderIdToApprove || o.orderNumber === orderIdToApprove
+            ? { ...o, ...approvedOrder, status: 'PAID', paidAt: new Date().toISOString(), reviewRequired: false }
+            : o
+        )
+      );
+
+      // Local storage sync for cross-tab / checkout preview synchronization
+      try {
+        const storedStr = localStorage.getItem('9tepay_orders');
+        const storedOrders: Order[] = storedStr ? JSON.parse(storedStr) : [];
+        const idx = storedOrders.findIndex(
+          (o) => o.id === orderIdToApprove || o.orderNumber === orderIdToApprove
         );
-      } else {
-        setOrders((prev) =>
-          prev.map((o) =>
-            o.id === orderIdToApprove || o.orderNumber === orderIdToApprove
-              ? { ...o, status: 'PAID' as const, paidAt: new Date().toISOString(), reviewRequired: false }
-              : o
-          )
-        );
-      }
+        if (idx >= 0) {
+          storedOrders[idx] = {
+            ...storedOrders[idx],
+            ...approvedOrder,
+            status: 'PAID',
+            paidAt: new Date().toISOString(),
+            reviewRequired: false,
+          };
+        } else {
+          storedOrders.unshift(approvedOrder);
+        }
+        localStorage.setItem('9tepay_orders', JSON.stringify(storedOrders));
+      } catch {}
+
+      // Broadcast live event
+      window.dispatchEvent(
+        new CustomEvent('order_approved', {
+          detail: { orderId: orderIdToApprove, order: data.order || approvedOrder },
+        })
+      );
+      window.dispatchEvent(new Event('storage'));
+
       refreshAll();
     } catch (err) {
       console.warn('Approve order fallback to local update', err);
+      const fallbackOrder = {
+        id: orderIdToApprove,
+        status: 'PAID' as const,
+        paidAt: new Date().toISOString(),
+        reviewRequired: false,
+      };
       setOrders((prev) =>
         prev.map((o) =>
           o.id === orderIdToApprove || o.orderNumber === orderIdToApprove
@@ -710,6 +756,12 @@ export function App() {
             : o
         )
       );
+      window.dispatchEvent(
+        new CustomEvent('order_approved', {
+          detail: { orderId: orderIdToApprove, order: fallbackOrder },
+        })
+      );
+      window.dispatchEvent(new Event('storage'));
     }
   };
 

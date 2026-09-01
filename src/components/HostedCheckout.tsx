@@ -82,11 +82,33 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
     Boolean(initialOrder.utrNumber && initialOrder.status !== 'PAID')
   );
 
-  // Background status polling (checks every 2s for merchant approval)
+  // Background status polling (checks every 1.5s for merchant approval)
   useEffect(() => {
     if (order.status === 'PAID') return;
 
-    const pollInterval = setInterval(async () => {
+    const checkOrderStatus = async () => {
+      // 1. Instantaneous local storage check (for same-window / multi-tab approval)
+      try {
+        const storedStr = localStorage.getItem('9tepay_orders');
+        if (storedStr) {
+          const storedOrders: Order[] = JSON.parse(storedStr);
+          const found = storedOrders.find(
+            (o) =>
+              o.id === order.id ||
+              o.orderNumber === order.orderNumber ||
+              (order.id && o.id?.toLowerCase() === order.id?.toLowerCase()) ||
+              (order.orderNumber && o.orderNumber?.toLowerCase() === order.orderNumber?.toLowerCase())
+          );
+          if (found && found.status === 'PAID') {
+            setOrder(found);
+            setIsAwaitingApproval(false);
+            onPaymentSuccess(found);
+            return;
+          }
+        }
+      } catch {}
+
+      // 2. Poll server endpoint
       try {
         const res = await safeFetch<Order>(`/api/orders/${order.id}`);
         if (res.ok && res.data) {
@@ -103,10 +125,44 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
           }
         }
       } catch {}
-    }, 2000);
+    };
 
-    return () => clearInterval(pollInterval);
-  }, [order.id, order.status, submittedUtr, onPaymentSuccess]);
+    const pollInterval = setInterval(checkOrderStatus, 1500);
+
+    // Instant cross-component event listener
+    const handleOrderApproved = (e: any) => {
+      const approvedOrder = e.detail?.order || e.detail;
+      if (
+        approvedOrder &&
+        (approvedOrder.id === order.id ||
+          approvedOrder.orderNumber === order.orderNumber ||
+          e.detail?.orderId === order.id ||
+          e.detail?.orderId === order.orderNumber)
+      ) {
+        const fullApproved: Order = {
+          ...order,
+          ...approvedOrder,
+          status: 'PAID',
+          paidAt: approvedOrder.paidAt || new Date().toISOString(),
+          reviewRequired: false,
+        };
+        setOrder(fullApproved);
+        setIsAwaitingApproval(false);
+        onPaymentSuccess(fullApproved);
+      } else {
+        checkOrderStatus();
+      }
+    };
+
+    window.addEventListener('order_approved', handleOrderApproved);
+    window.addEventListener('storage', checkOrderStatus);
+
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener('order_approved', handleOrderApproved);
+      window.removeEventListener('storage', checkOrderStatus);
+    };
+  }, [order.id, order.orderNumber, order.status, submittedUtr, onPaymentSuccess]);
 
   const handleCopyAmount = () => {
     if (navigator.clipboard) {
@@ -129,19 +185,25 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
     // Show helpful active toast
     setActiveIntentNotice({
       app: appName,
-      message: `UPI ID copied! If ${appName} displays "Unverified merchant", select "Pay to UPI ID" in ${appName} or scan the QR code.`,
+      message: `Opening ${appName}... Complete your payment of ₹${order.amount.toFixed(2)} and submit the 12-digit UTR below.`,
     });
 
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     
-    // 2. On desktop or non-mobile, trigger fallback & show modal guide
+    // Direct intent invocation
+    try {
+      if (window.top && window.top !== window) {
+        window.top.location.href = targetUrl;
+      } else {
+        window.location.href = targetUrl;
+      }
+    } catch {
+      window.location.href = targetUrl;
+    }
+
+    // On desktop or non-mobile, show modal helper
     if (!isMobile) {
       setIntentGuideApp(appName);
-      try {
-        window.location.href = targetUrl;
-      } catch (err) {
-        console.warn('Unable to navigate directly to intent URL', err);
-      }
     }
   };
   useEffect(() => {
@@ -237,12 +299,18 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
   const getQrFile = async (): Promise<File | null> => {
     try {
       if (uploadedQrImage && qrViewMode === 'uploaded_standee') {
-        const response = await fetch(uploadedQrImage);
-        const blob = await response.blob();
-        return new File([blob], `UPI_QR_${order.orderNumber}.png`, { type: 'image/png' });
+        try {
+          const response = await fetch(uploadedQrImage);
+          const blob = await response.blob();
+          return new File([blob], `UPI_QR_${order.orderNumber}.png`, { type: 'image/png' });
+        } catch {
+          // fetch might fail on cross-origin without CORS
+        }
       }
 
-      const svgElement = document.querySelector('.qr-code-svg-container svg') as SVGElement;
+      const svgElement =
+        (document.querySelector('.qr-code-svg-container svg') as SVGElement) ||
+        (document.querySelector('svg') as SVGElement);
       if (!svgElement) return null;
 
       const svgData = new XMLSerializer().serializeToString(svgElement);
@@ -283,7 +351,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
   };
 
   const handleShareQr = async (appName: string = 'Google Pay') => {
-    // 1. Copy VPA for immediate pasting fallback
+    // 1. Copy VPA for clipboard convenience
     try {
       if (navigator.clipboard) {
         navigator.clipboard.writeText(order.merchantVpa).catch(() => {});
@@ -295,33 +363,33 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
     // 2. Generate actual QR image File
     const qrFile = await getQrFile();
 
-    // 3. Web Share API invocation with File object (shares actual QR image)
-    if (navigator.share && qrFile) {
+    // 3. Web Share API invocation with File object (shares actual QR image file into native apps)
+    if (typeof navigator !== 'undefined' && navigator.share) {
       try {
-        const shareData: ShareData = {
-          title: `UPI QR Code - ₹${order.amount.toFixed(2)}`,
-          text: `Scan QR in ${appName} or PhonePe/Paytm/BHIM to pay ₹${order.amount.toFixed(2)}. UPI VPA: ${order.merchantVpa}`,
-          files: [qrFile],
-        };
-
-        if (navigator.canShare && navigator.canShare({ files: [qrFile] })) {
-          await navigator.share(shareData);
+        if (qrFile && navigator.canShare && navigator.canShare({ files: [qrFile] })) {
+          await navigator.share({
+            title: `UPI QR Code - ₹${order.amount.toFixed(2)}`,
+            text: `Scan QR in ${appName} or UPI app to pay ₹${order.amount.toFixed(2)}. UPI VPA: ${order.merchantVpa}`,
+            files: [qrFile],
+          });
+          return;
         } else {
+          // Fallback share without file
           handleDownloadQr();
           await navigator.share({
             title: `Pay ₹${order.amount.toFixed(2)} - ${order.merchantName}`,
             text: `Scan QR in ${appName} or PhonePe/Paytm/BHIM to pay ₹${order.amount.toFixed(2)}. UPI VPA: ${order.merchantVpa}`,
           });
+          return;
         }
-      } catch (err) {
-        console.warn('Share error or canceled:', err);
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
+        console.warn('Native share canceled or unsupported:', err);
       }
-    } else {
-      // Fallback: download QR PNG
-      handleDownloadQr();
     }
 
-    // 4. Open share QR step-by-step guidance modal
+    // 4. Fallback: download QR PNG & open modal
+    handleDownloadQr();
     setShowQrShareModal(appName);
   };
 
@@ -1132,19 +1200,48 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
               </ol>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-center gap-2">
+              <a
+                href={
+                  showQrShareModal?.toLowerCase().includes('google') || showQrShareModal?.toLowerCase().includes('gpay')
+                    ? deeplinks.gpay
+                    : showQrShareModal?.toLowerCase().includes('phonepe')
+                    ? deeplinks.phonepe
+                    : showQrShareModal?.toLowerCase().includes('paytm')
+                    ? deeplinks.paytm
+                    : deeplinks.generic
+                }
+                target="_top"
+                onClick={(e) => {
+                  const targetUrl =
+                    showQrShareModal?.toLowerCase().includes('google') || showQrShareModal?.toLowerCase().includes('gpay')
+                      ? deeplinks.gpay
+                      : showQrShareModal?.toLowerCase().includes('phonepe')
+                      ? deeplinks.phonepe
+                      : showQrShareModal?.toLowerCase().includes('paytm')
+                      ? deeplinks.paytm
+                      : deeplinks.generic;
+                  handleAppIntentClick(showQrShareModal || 'UPI App', targetUrl, e);
+                }}
+                className="w-full sm:flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Zap className="w-4 h-4" />
+                <span>Open {showQrShareModal || 'UPI'} App</span>
+              </a>
               <button
                 onClick={handleDownloadQr}
-                className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                className="w-full sm:flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Download className="w-4 h-4" />
                 <span>Download QR PNG</span>
               </button>
+            </div>
+            <div>
               <button
                 onClick={() => setShowQrShareModal(null)}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all cursor-pointer shadow-xs"
+                className="w-full text-slate-500 hover:text-slate-800 font-semibold text-xs py-1.5 transition-colors cursor-pointer"
               >
-                <span>Done, Submit UTR</span>
+                Close &amp; Enter UTR
               </button>
             </div>
           </div>

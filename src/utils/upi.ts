@@ -55,16 +55,23 @@ export function generateAppDeeplinks(config: UpilinkConfig): AppDeeplinks {
   const safeNote = (note?.trim() || `Payment for ${orderNumber || 'Order'}`).replace(/[^a-zA-Z0-9\s]/g, '').trim();
   const cleanNote = encodeURIComponent(safeNote || 'Payment');
   
-  // Standard params (no illegal mc/mode flags)
+  // Standard params (clean NPCI format)
   const cleanParams = `pa=${cleanVpa}&pn=${cleanName}&am=${cleanAmount}&cu=INR&tn=${cleanNote}`;
   
-  // Pure P2P params (minimal parameters: strictly pa, pn, am, cu - highest compatibility with personal bank VPAs)
+  // Pure P2P params (minimal parameters: strictly pa, pn, am, cu)
   const pureParams = `pa=${cleanVpa}&pn=${cleanName}&am=${cleanAmount}&cu=INR`;
 
   const universal = `upi://pay?${cleanParams}`;
   const pureUniversal = `upi://pay?${pureParams}`;
 
-  // Native custom scheme URLs (Avoids Android Chrome strict Merchant Intent firewall that triggers 'unverified merchant' error in Paytm/GPay)
+  // Package Intent URLs (For Android Chrome - directly targets installed app)
+  const gpayPkgIntent = `intent://pay?${cleanParams}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end;`;
+  const phonepePkgIntent = `intent://pay?${cleanParams}#Intent;scheme=upi;package=com.phonepe.app;end;`;
+  const paytmPkgIntent = `intent://pay?${cleanParams}#Intent;scheme=upi;package=net.one97.paytm;end;`;
+  const bhimPkgIntent = `intent://pay?${cleanParams}#Intent;scheme=upi;package=in.org.npci.upiapp;end;`;
+  const credPkgIntent = `intent://pay?${cleanParams}#Intent;scheme=upi;package=com.dreamplug.androidapp;end;`;
+
+  // Custom scheme URLs (For iOS & direct app invocation)
   const gpayUri = `tez://upi/pay?${cleanParams}`;
   const phonepeUri = `phonepe://pay?${cleanParams}`;
   const paytmUri = `paytmmp://pay?${cleanParams}`;
@@ -72,28 +79,30 @@ export function generateAppDeeplinks(config: UpilinkConfig): AppDeeplinks {
   const credUri = `cred://pay?${cleanParams}`;
   const whatsappUri = `whatsapp://pay?${cleanParams}`;
 
+  const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
+
   return {
     generic: universal,
     cleanP2p: pureUniversal,
-    // Primary Native App Deep Links
-    gpay: gpayUri,
-    phonepe: phonepeUri,
-    paytm: paytmUri,
-    bhim: bhimUri,
-    cred: credUri,
+    // On Android, use the exact Android Chrome Package Intent; on iOS / desktop, use custom URI
+    gpay: isAndroid ? gpayPkgIntent : gpayUri,
+    phonepe: isAndroid ? phonepePkgIntent : phonepeUri,
+    paytm: isAndroid ? paytmPkgIntent : paytmUri,
+    bhim: isAndroid ? bhimPkgIntent : bhimUri,
+    cred: isAndroid ? credPkgIntent : credUri,
     whatsapp: whatsappUri,
-    // Direct references
+    // Direct custom references
     gpayDirect: gpayUri,
     phonepeDirect: phonepeUri,
     paytmDirect: paytmUri,
     bhimDirect: bhimUri,
     credDirect: credUri,
-    // Package intent URLs (used only when direct scheme is unavailable)
-    gpayIntent: `intent://pay?${cleanParams}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end;`,
-    phonepeIntent: `intent://pay?${cleanParams}#Intent;scheme=upi;package=com.phonepe.app;end;`,
-    paytmIntent: `intent://pay?${cleanParams}#Intent;scheme=upi;package=net.one97.paytm;end;`,
-    bhimIntent: `intent://pay?${cleanParams}#Intent;scheme=upi;package=in.org.npci.upiapp;end;`,
-    credIntent: `intent://pay?${cleanParams}#Intent;scheme=upi;package=com.dreamplug.androidapp;end;`,
+    // Package intent URLs
+    gpayIntent: gpayPkgIntent,
+    phonepeIntent: phonepePkgIntent,
+    paytmIntent: paytmPkgIntent,
+    bhimIntent: bhimPkgIntent,
+    credIntent: credPkgIntent,
   };
 }
 
