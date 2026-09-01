@@ -13,6 +13,10 @@ import {
   XCircle,
   User as UserIcon,
   Settings,
+  ChevronDown,
+  ChevronRight,
+  Menu,
+  Check,
 } from 'lucide-react';
 import { Order, MerchantProfile, WebhookLog, User, BankAccountQR, BankRoutingStrategy, SecurityEvent } from './types';
 import { safeFetch, fetchJson, api } from './utils/api';
@@ -234,6 +238,19 @@ export function App() {
     } catch {}
     return DEFAULT_USER;
   });
+
+  const [isNavDropdownOpen, setIsNavDropdownOpen] = useState(false);
+  const navDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (navDropdownRef.current && !navDropdownRef.current.contains(event.target as Node)) {
+        setIsNavDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const [activeView, setActiveView] = useState<
     'dashboard' | 'payment_links' | 'checkout' | 'admin' | 'auth' | 'docs' | 'profile' | 'settings'
@@ -1072,124 +1089,232 @@ export function App() {
             </span>
           </div>
 
-          {/* Navigation Bar & User Controls */}
+          {/* Navigation Bar Dropdown & User Controls */}
           <div className="flex items-center gap-2">
             {currentUser ? (
-              <nav className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs overflow-x-auto max-w-full">
-                {/* Superadmin Panel - ONLY SHOWN IF USER IS ADMIN */}
-                {currentUser.role === 'admin' && (
+              <div className="flex items-center gap-2">
+                {/* Header Menu Dropdown */}
+                <div className="relative" ref={navDropdownRef}>
                   <button
-                    onClick={() => handleViewChange('admin')}
-                    className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                      effectiveView === 'admin'
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                    }`}
-                    title="Superadmin Panel"
+                    onClick={() => setIsNavDropdownOpen((prev) => !prev)}
+                    className="flex items-center gap-2 px-3.5 py-2 bg-slate-100 hover:bg-slate-200/80 active:bg-slate-200 text-slate-800 border border-slate-200/90 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                    aria-expanded={isNavDropdownOpen}
+                    aria-label="Toggle navigation dropdown menu"
                   >
-                    <Shield className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Admin Panel</span>
+                    <Menu className="w-4 h-4 text-slate-600" />
+                    <span className="flex items-center gap-1.5 font-semibold text-slate-900">
+                      {effectiveView === 'dashboard' && <><LayoutDashboard className="w-3.5 h-3.5 text-blue-600" /> Merchant</>}
+                      {effectiveView === 'payment_links' && <><Link2 className="w-3.5 h-3.5 text-blue-600" /> Payment Links</>}
+                      {effectiveView === 'docs' && <><Code2 className="w-3.5 h-3.5 text-blue-600" /> API Docs</>}
+                      {effectiveView === 'profile' && <><UserIcon className="w-3.5 h-3.5 text-blue-600" /> Profile</>}
+                      {effectiveView === 'settings' && <><Settings className="w-3.5 h-3.5 text-blue-600" /> Settings</>}
+                      {effectiveView === 'admin' && <><Shield className="w-3.5 h-3.5 text-indigo-600" /> Admin Panel</>}
+                      {effectiveView === 'auth' && <>Menu</>}
+                    </span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${isNavDropdownOpen ? 'rotate-180 text-blue-600' : ''}`} />
                   </button>
-                )}
 
-                {/* Merchant Dashboard */}
-                <button
-                  onClick={() => handleViewChange('dashboard')}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                    effectiveView === 'dashboard'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                  }`}
-                  title="Merchant Dashboard"
-                >
-                  <LayoutDashboard className="w-3.5 h-3.5" />
-                  <span>Merchant</span>
-                </button>
+                  {/* Dropdown Menu Popup */}
+                  {isNavDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                      <div className="p-2.5 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">
+                          Navigation Menu
+                        </span>
+                        <span className="text-[10px] font-semibold text-slate-500 bg-slate-200/60 px-2 py-0.5 rounded-full capitalize">
+                          {currentUser.role}
+                        </span>
+                      </div>
 
-                {/* Payment Links Manager */}
-                <button
-                  onClick={() => handleViewChange('payment_links')}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                    effectiveView === 'payment_links'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                  }`}
-                  title="Payment Links & Instant UPI URLs"
-                >
-                  <Link2 className="w-3.5 h-3.5" />
-                  <span>Payment Links</span>
-                </button>
+                      <div className="p-1.5 space-y-0.5">
+                        {/* Superadmin Option (If Admin) */}
+                        {currentUser.role === 'admin' && (
+                          <button
+                            onClick={() => {
+                              handleViewChange('admin');
+                              setIsNavDropdownOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left cursor-pointer ${
+                              effectiveView === 'admin'
+                                ? 'bg-indigo-50 text-indigo-900 font-bold'
+                                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className={`p-1.5 rounded-lg ${effectiveView === 'admin' ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-600'}`}>
+                                <Shield className="w-3.5 h-3.5" />
+                              </div>
+                              <div>
+                                <div className="font-semibold text-slate-900">Admin Panel</div>
+                                <div className="text-[10px] text-slate-500">System overview &amp; logs</div>
+                              </div>
+                            </div>
+                            {effectiveView === 'admin' && <Check className="w-4 h-4 text-indigo-600" />}
+                          </button>
+                        )}
 
-                {/* Developer API */}
-                <button
-                  onClick={() => handleViewChange('docs')}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                    effectiveView === 'docs'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                  }`}
-                  title="Developer API & Sandbox (/docs)"
-                >
-                  <Code2 className="w-3.5 h-3.5" />
-                  <span>API</span>
-                </button>
+                        {/* Merchant Dashboard */}
+                        <button
+                          onClick={() => {
+                            handleViewChange('dashboard');
+                            setIsNavDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left cursor-pointer ${
+                            effectiveView === 'dashboard'
+                              ? 'bg-blue-50 text-blue-900 font-bold'
+                              : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`p-1.5 rounded-lg ${effectiveView === 'dashboard' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'}`}>
+                              <LayoutDashboard className="w-3.5 h-3.5" />
+                            </div>
+                            <div>
+                              <div className="font-semibold text-slate-900">Merchant Dashboard</div>
+                              <div className="text-[10px] text-slate-500">Transactions &amp; UTR approvals</div>
+                            </div>
+                          </div>
+                          {effectiveView === 'dashboard' && <Check className="w-4 h-4 text-blue-600" />}
+                        </button>
 
-                {/* Profile Section */}
+                        {/* Payment Links */}
+                        <button
+                          onClick={() => {
+                            handleViewChange('payment_links');
+                            setIsNavDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left cursor-pointer ${
+                            effectiveView === 'payment_links'
+                              ? 'bg-blue-50 text-blue-900 font-bold'
+                              : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`p-1.5 rounded-lg ${effectiveView === 'payment_links' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'}`}>
+                              <Link2 className="w-3.5 h-3.5" />
+                            </div>
+                            <div>
+                              <div className="font-semibold text-slate-900">Payment Links</div>
+                              <div className="text-[10px] text-slate-500">Instant UPI URLs &amp; QRs</div>
+                            </div>
+                          </div>
+                          {effectiveView === 'payment_links' && <Check className="w-4 h-4 text-blue-600" />}
+                        </button>
+
+                        {/* Developer API */}
+                        <button
+                          onClick={() => {
+                            handleViewChange('docs');
+                            setIsNavDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left cursor-pointer ${
+                            effectiveView === 'docs'
+                              ? 'bg-blue-50 text-blue-900 font-bold'
+                              : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`p-1.5 rounded-lg ${effectiveView === 'docs' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'}`}>
+                              <Code2 className="w-3.5 h-3.5" />
+                            </div>
+                            <div>
+                              <div className="font-semibold text-slate-900">Developer API</div>
+                              <div className="text-[10px] text-slate-500">API Docs, keys &amp; webhooks</div>
+                            </div>
+                          </div>
+                          {effectiveView === 'docs' && <Check className="w-4 h-4 text-blue-600" />}
+                        </button>
+
+                        {/* Profile Section */}
+                        <button
+                          onClick={() => {
+                            handleViewChange('profile');
+                            setIsNavDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left cursor-pointer ${
+                            effectiveView === 'profile'
+                              ? 'bg-blue-50 text-blue-900 font-bold'
+                              : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`p-1.5 rounded-lg ${effectiveView === 'profile' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'}`}>
+                              <UserIcon className="w-3.5 h-3.5" />
+                            </div>
+                            <div>
+                              <div className="font-semibold text-slate-900">Merchant Profile</div>
+                              <div className="text-[10px] text-slate-500">Business info &amp; primary VPA</div>
+                            </div>
+                          </div>
+                          {effectiveView === 'profile' && <Check className="w-4 h-4 text-blue-600" />}
+                        </button>
+
+                        {/* Settings Section */}
+                        <button
+                          onClick={() => {
+                            handleViewChange('settings');
+                            setIsNavDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left cursor-pointer ${
+                            effectiveView === 'settings'
+                              ? 'bg-blue-50 text-blue-900 font-bold'
+                              : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`p-1.5 rounded-lg ${effectiveView === 'settings' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'}`}>
+                              <Settings className="w-3.5 h-3.5" />
+                            </div>
+                            <div>
+                              <div className="font-semibold text-slate-900">Settings</div>
+                              <div className="text-[10px] text-slate-500">Routing rules &amp; auto-approve</div>
+                            </div>
+                          </div>
+                          {effectiveView === 'settings' && <Check className="w-4 h-4 text-blue-600" />}
+                        </button>
+                      </div>
+
+                      {/* Account Footer with Sign Out */}
+                      <div className="p-2 bg-slate-50 border-t border-slate-100 space-y-1">
+                        <div className="px-2.5 py-1.5 flex items-center justify-between text-xs">
+                          <span className="font-semibold text-slate-800 truncate max-w-[130px]">
+                            {currentUser.name}
+                          </span>
+                          <span className="text-[10px] text-slate-500 truncate">
+                            {currentUser.email}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setIsNavDropdownOpen(false);
+                            handleLogout();
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-700 hover:bg-rose-50 border border-rose-200/60 transition-all cursor-pointer"
+                        >
+                          <LogOut className="w-3.5 h-3.5" />
+                          <span>Sign Out</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick Profile Badge */}
                 <button
                   onClick={() => handleViewChange('profile')}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                    effectiveView === 'profile'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                  }`}
-                  title="Profile & Account Details"
+                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 shadow-2xs cursor-pointer transition-all"
+                  title="View Profile Details"
                 >
-                  <UserIcon className="w-3.5 h-3.5" />
-                  <span>Profile</span>
+                  <span className={`w-2 h-2 rounded-full ${currentUser.role === 'admin' ? 'bg-indigo-500' : 'bg-emerald-500'} animate-pulse`}></span>
+                  <span className="font-semibold text-slate-800 truncate max-w-[120px]">{currentUser.name}</span>
                 </button>
-
-                {/* Settings Section */}
-                <button
-                  onClick={() => handleViewChange('settings')}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                    effectiveView === 'settings'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                  }`}
-                  title="Account Settings & Security"
-                >
-                  <Settings className="w-3.5 h-3.5" />
-                  <span>Settings</span>
-                </button>
-              </nav>
+              </div>
             ) : (
               <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
                 <div className="px-3 py-1.5 rounded-lg font-semibold bg-blue-600 text-white shadow-xs flex items-center gap-1.5">
                   <Lock className="w-3.5 h-3.5" />
                   <span>Sign In</span>
                 </div>
-              </div>
-            )}
-
-            {/* Quick User Badge & Sign Out Button */}
-            {currentUser && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleViewChange('profile')}
-                  className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 shadow-2xs cursor-pointer transition-all"
-                  title="View Profile Details"
-                >
-                  <span className={`w-2 h-2 rounded-full ${currentUser.role === 'admin' ? 'bg-indigo-500' : 'bg-blue-500'} animate-pulse`}></span>
-                  <span className="font-semibold text-slate-800 truncate max-w-[120px]">{currentUser.name}</span>
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center gap-1.5 shrink-0 shadow-2xs"
-                  title="Sign out of current session"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>Sign Out</span>
-                </button>
               </div>
             )}
           </div>
