@@ -21,20 +21,31 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { AuthPortal } from './components/AuthPortal';
 
 export function App() {
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem('9tepay_user');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
+
   const [activeView, setActiveView] = useState<
     'dashboard' | 'payment_links' | 'checkout' | 'admin' | 'auth' | 'docs'
-  >('dashboard');
-
-  const [currentUser, setCurrentUser] = useState<User | null>({
-    id: 'usr_merchant_01',
-    name: 'Abhay Sharma',
-    email: 'merchant@9tepay.com',
-    phone: '+91 98765 43210',
-    role: 'merchant',
-    businessName: '9tepay Merchant Services',
-    vpa: '9tepay.business@icici',
-    status: 'active',
-    createdAt: '2026-08-01T10:00:00.000Z',
+  >(() => {
+    try {
+      const saved = localStorage.getItem('9tepay_user');
+      if (saved) {
+        const u = JSON.parse(saved);
+        return u.role === 'admin' ? 'admin' : 'dashboard';
+      }
+    } catch {
+      // ignore
+    }
+    return 'auth';
   });
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -94,8 +105,18 @@ export function App() {
         setSecurityEvents(secRes.data);
       }
 
-      if (authRes.ok && authRes.data?.user) {
-        setCurrentUser(authRes.data.user);
+      if (authRes.ok) {
+        if (authRes.data?.user) {
+          setCurrentUser(authRes.data.user);
+          try {
+            localStorage.setItem('9tepay_user', JSON.stringify(authRes.data.user));
+          } catch {}
+        } else {
+          const saved = localStorage.getItem('9tepay_user');
+          if (!saved) {
+            setCurrentUser(null);
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to load initial gateway data', err);
@@ -377,6 +398,11 @@ export function App() {
 
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
+    try {
+      localStorage.setItem('9tepay_user', JSON.stringify(user));
+    } catch {
+      // ignore
+    }
     if (user.role === 'admin') {
       setActiveView('admin');
     } else {
@@ -387,6 +413,7 @@ export function App() {
 
   const handleLogout = async () => {
     try {
+      localStorage.removeItem('9tepay_user');
       await safeFetch('/api/auth/logout', { method: 'POST' });
     } catch {
       // ignore
@@ -395,25 +422,29 @@ export function App() {
     setActiveView('auth');
   };
 
+  // Safe view resolution based on authentication state
+  const isPublicCheckout = activeView === 'checkout' && selectedOrder;
+  const effectiveView = !currentUser && !isPublicCheckout ? 'auth' : activeView;
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
       {/* Top Header Navbar */}
-      <header className="border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md sticky top-0 z-40">
+      <header className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md sticky top-0 z-40 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-emerald-950/50 shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm shrink-0">
               <QrCode className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="font-bold text-sm sm:text-base text-white tracking-tight">
+                <h1 className="font-bold text-sm sm:text-base text-slate-900 tracking-tight">
                   9tepay Merchant Gateway
                 </h1>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hidden sm:inline-block">
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 hidden sm:inline-block">
                   NPCI Deeplink Intent
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 font-mono hidden md:block">
+              <p className="text-[11px] text-slate-500 font-sans hidden md:block">
                 9tepay.com &bull; Enterprise UPI Switching Engine &bull; GPay / PhonePe / Paytm / BHIM
               </p>
             </div>
@@ -421,94 +452,91 @@ export function App() {
 
           {/* Navigation Bar & User Controls */}
           <div className="flex items-center gap-2">
-            <nav className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-xs overflow-x-auto max-w-full">
-              {/* Merchant Dashboard */}
-              <button
-                onClick={() => setActiveView('dashboard')}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                  activeView === 'dashboard'
-                    ? 'bg-emerald-600 text-white shadow'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-                title="Merchant Dashboard"
-              >
-                <LayoutDashboard className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Merchant</span>
-                <span className="sm:hidden">Merchant</span>
-              </button>
+            {currentUser ? (
+              <nav className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs overflow-x-auto max-w-full">
+                {/* Superadmin Panel - ONLY SHOWN IF USER IS ADMIN */}
+                {currentUser.role === 'admin' && (
+                  <button
+                    onClick={() => setActiveView('admin')}
+                    className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                      effectiveView === 'admin'
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    }`}
+                    title="Superadmin Panel"
+                  >
+                    <Shield className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Admin Panel</span>
+                  </button>
+                )}
 
-              {/* Payment Links Manager */}
-              <button
-                onClick={() => setActiveView('payment_links')}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                  activeView === 'payment_links'
-                    ? 'bg-emerald-600 text-white shadow'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-                title="Payment Links & Instant UPI URLs"
-              >
-                <Link2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Payment Links</span>
-                <span className="sm:hidden">Links</span>
-              </button>
-
-              {/* Superadmin Panel - ONLY SHOWN IF USER IS ADMIN */}
-              {currentUser?.role === 'admin' && (
+                {/* Merchant Dashboard */}
                 <button
-                  onClick={() => setActiveView('admin')}
+                  onClick={() => setActiveView('dashboard')}
                   className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                    activeView === 'admin'
-                      ? 'bg-amber-600 text-white shadow'
-                      : 'text-slate-400 hover:text-slate-200'
+                    effectiveView === 'dashboard'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                   }`}
-                  title="Superadmin Panel"
+                  title="Merchant Dashboard"
                 >
-                  <Shield className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Admin</span>
-                  <span className="sm:hidden">Admin</span>
+                  <LayoutDashboard className="w-3.5 h-3.5" />
+                  <span>Merchant</span>
                 </button>
-              )}
 
-              {/* Login / Auth Portal */}
-              <button
-                onClick={() => setActiveView('auth')}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                  activeView === 'auth'
-                    ? 'bg-emerald-600 text-white shadow'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-                title="Login & Account Access"
-              >
-                <Lock className="w-3.5 h-3.5" />
-                <span>Login</span>
-              </button>
+                {/* Payment Links Manager */}
+                <button
+                  onClick={() => setActiveView('payment_links')}
+                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                    effectiveView === 'payment_links'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                  }`}
+                  title="Payment Links & Instant UPI URLs"
+                >
+                  <Link2 className="w-3.5 h-3.5" />
+                  <span>Payment Links</span>
+                </button>
 
-              {/* Developer API */}
-              <button
-                onClick={() => setActiveView('docs')}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                  activeView === 'docs'
-                    ? 'bg-emerald-600 text-white shadow'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-                title="Developer API & Sandbox (/docs)"
-              >
-                <Code2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">API</span>
-                <span className="sm:hidden">API</span>
-              </button>
-            </nav>
+                {/* Developer API */}
+                <button
+                  onClick={() => setActiveView('docs')}
+                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                    effectiveView === 'docs'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                  }`}
+                  title="Developer API & Sandbox (/docs)"
+                >
+                  <Code2 className="w-3.5 h-3.5" />
+                  <span>API</span>
+                </button>
+              </nav>
+            ) : (
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
+                <div className="px-3 py-1.5 rounded-lg font-semibold bg-blue-600 text-white shadow-xs flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Sign In</span>
+                </div>
+              </div>
+            )}
 
-            {/* Quick Sign Out button if logged in */}
+            {/* Quick User Badge & Sign Out Button */}
             {currentUser && (
-              <button
-                onClick={handleLogout}
-                className="px-2.5 py-1.5 bg-slate-900 hover:bg-rose-950/40 text-slate-400 hover:text-rose-300 border border-slate-800 hover:border-rose-500/30 rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center gap-1.5 shrink-0"
-                title="Sign out of current session"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Sign Out</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 shadow-2xs">
+                  <span className={`w-2 h-2 rounded-full ${currentUser.role === 'admin' ? 'bg-indigo-500' : 'bg-blue-500'} animate-pulse`}></span>
+                  <span className="font-semibold text-slate-800 truncate max-w-[120px]">{currentUser.name}</span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center gap-1.5 shrink-0 shadow-2xs"
+                  title="Sign out of current session"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -516,87 +544,114 @@ export function App() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 flex-1">
-        {/* VIEW 1: Merchant Dashboard */}
-        {activeView === 'dashboard' && (
-          <MerchantDashboard
-            orders={orders}
-            profile={profile}
-            webhookLogs={webhookLogs}
-            bankAccounts={bankAccounts}
-            onAddBank={handleAddBank}
-            onUpdateBank={handleUpdateBank}
-            onDeleteBank={handleDeleteBank}
-            onSetPrimary={handleSetPrimaryBank}
-            onToggleActive={handleToggleActiveBank}
-            routingStrategy={profile.routingStrategy || 'smart_round_robin'}
-            onUpdateRoutingStrategy={handleUpdateRoutingStrategy}
-            securityEvents={securityEvents}
-            onTriggerSecurityProbe={handleTriggerSecurityProbe}
-            onOpenCheckout={handleOpenCheckout}
-            onCreateOrder={handleCreateOrder}
-            onUpdateProfile={handleUpdateProfile}
-            onRegenerateKeys={handleRegenerateKeys}
-            onTriggerTestWebhook={handleTriggerTestWebhook}
-          />
-        )}
+        {!currentUser ? (
+          /* When signed out: ONLY show Public Checkout if viewing order or AuthPortal Login */
+          isPublicCheckout && selectedOrder ? (
+            <HostedCheckout
+              order={selectedOrder}
+              bankAccounts={bankAccounts}
+              onPaymentSuccess={handlePaymentSuccess}
+              onBackToDashboard={() => setActiveView('auth')}
+            />
+          ) : (
+            <AuthPortal
+              currentUser={null}
+              onLoginSuccess={handleLoginSuccess}
+              onLogout={handleLogout}
+            />
+          )
+        ) : (
+          /* When logged in: Render selected authenticated view */
+          <>
+            {/* VIEW 1: Superadmin Control Panel (Accessible ONLY when role === 'admin') */}
+            {effectiveView === 'admin' && currentUser.role === 'admin' && (
+              <AdminDashboard
+                orders={orders}
+                onRefreshOrders={refreshAll}
+              />
+            )}
 
-        {/* VIEW 2: Payment Links Manager */}
-        {activeView === 'payment_links' && (
-          <PaymentLinksManager
-            orders={orders}
-            bankAccounts={bankAccounts}
-            routingStrategy={profile.routingStrategy || 'smart_round_robin'}
-            primaryVpa={profile.vpa}
-            onCreateLink={handleCreateOrder}
-            onOpenCheckout={handleOpenCheckout}
-            onCancelOrder={handleCancelOrder}
-          />
-        )}
+            {/* VIEW 2: Merchant Dashboard */}
+            {effectiveView === 'dashboard' && (
+              <MerchantDashboard
+                orders={orders}
+                profile={profile}
+                webhookLogs={webhookLogs}
+                bankAccounts={bankAccounts}
+                onAddBank={handleAddBank}
+                onUpdateBank={handleUpdateBank}
+                onDeleteBank={handleDeleteBank}
+                onSetPrimary={handleSetPrimaryBank}
+                onToggleActive={handleToggleActiveBank}
+                routingStrategy={profile.routingStrategy || 'smart_round_robin'}
+                onUpdateRoutingStrategy={handleUpdateRoutingStrategy}
+                securityEvents={securityEvents}
+                onTriggerSecurityProbe={handleTriggerSecurityProbe}
+                onOpenCheckout={handleOpenCheckout}
+                onCreateOrder={handleCreateOrder}
+                onUpdateProfile={handleUpdateProfile}
+                onRegenerateKeys={handleRegenerateKeys}
+                onTriggerTestWebhook={handleTriggerTestWebhook}
+              />
+            )}
 
-        {/* VIEW 3: Hosted Checkout (When viewing a specific payment link) */}
-        {activeView === 'checkout' && selectedOrder && (
-          <HostedCheckout
-            order={selectedOrder}
-            bankAccounts={bankAccounts}
-            onPaymentSuccess={handlePaymentSuccess}
-            onBackToDashboard={() => setActiveView('payment_links')}
-          />
-        )}
+            {/* VIEW 3: Payment Links Manager */}
+            {effectiveView === 'payment_links' && (
+              <PaymentLinksManager
+                orders={orders}
+                bankAccounts={bankAccounts}
+                routingStrategy={profile.routingStrategy || 'smart_round_robin'}
+                primaryVpa={profile.vpa}
+                onCreateLink={handleCreateOrder}
+                onOpenCheckout={handleOpenCheckout}
+                onCancelOrder={handleCancelOrder}
+              />
+            )}
 
-        {/* VIEW 4: Superadmin Control Panel (Accessible only when logged in as Admin) */}
-        {activeView === 'admin' && currentUser?.role === 'admin' && (
-          <AdminDashboard
-            orders={orders}
-            onRefreshOrders={refreshAll}
-          />
-        )}
+            {/* VIEW 4: Hosted Checkout */}
+            {effectiveView === 'checkout' && selectedOrder && (
+              <HostedCheckout
+                order={selectedOrder}
+                bankAccounts={bankAccounts}
+                onPaymentSuccess={handlePaymentSuccess}
+                onBackToDashboard={() => setActiveView(currentUser.role === 'admin' ? 'admin' : 'dashboard')}
+              />
+            )}
 
-        {/* VIEW 5: Login & Onboarding Portal */}
-        {activeView === 'auth' && (
-          <AuthPortal
-            currentUser={currentUser}
-            onLoginSuccess={handleLoginSuccess}
-            onLogout={handleLogout}
-          />
-        )}
+            {/* VIEW 5: Login & Account Portal */}
+            {effectiveView === 'auth' && (
+              <AuthPortal
+                currentUser={currentUser}
+                onLoginSuccess={handleLoginSuccess}
+                onLogout={handleLogout}
+              />
+            )}
 
-        {/* VIEW 6: Developer API Docs */}
-        {activeView === 'docs' && (
-          <DeveloperApiDocs profile={profile} />
+            {/* VIEW 6: Developer API Docs */}
+            {effectiveView === 'docs' && (
+              <DeveloperApiDocs profile={profile} />
+            )}
+          </>
         )}
       </main>
 
       {/* Bottom Footer */}
-      <footer className="border-t border-slate-800/80 bg-slate-950 py-4 text-center text-xs text-slate-500">
+      <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500 shadow-2xs">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-300">9tepay Merchant Gateway</span>
+            <span className="font-semibold text-slate-800">9tepay Merchant Gateway</span>
             <span>&bull;</span>
-            <span className="font-mono text-emerald-400">Zero-Gateway-Fee UPI Processing Engine</span>
+            <span className="font-medium text-blue-700">Zero-Gateway-Fee UPI Processing Engine</span>
           </div>
-          <div className="font-mono text-[11px] text-slate-400 flex items-center gap-3">
-            <span>Primary VPA: <strong className="text-slate-200">{profile.vpa}</strong></span>
-            <span>Session: <strong className="text-emerald-400">9tepay_session_active</strong></span>
+          <div className="text-[11px] text-slate-500 flex items-center gap-3 font-sans">
+            {currentUser ? (
+              <>
+                <span>Account: <strong className="text-slate-800">{currentUser.businessName}</strong></span>
+                <span>Role: <strong className="text-blue-700 uppercase font-bold">{currentUser.role}</strong></span>
+              </>
+            ) : (
+              <span>Session: <strong className="text-slate-600">Signed Out</strong></span>
+            )}
           </div>
         </div>
       </footer>

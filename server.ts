@@ -460,20 +460,23 @@ let merchantsList: MerchantListItem[] = [
   },
 ];
 
-let currentUser = {
-  id: "usr_merchant_01",
-  name: "Abhay Sharma",
-  email: "merchant@9tepay.com",
-  phone: "+91 98765 43210",
-  role: "merchant" as "merchant" | "admin",
-  businessName: "9tepay Merchant Services",
-  vpa: "9tepay.business@icici",
-  status: "active" as "active" | "suspended" | "pending_kyc",
-  createdAt: "2026-08-01T10:00:00.000Z",
-};
+let currentUser: {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: "merchant" | "admin";
+  businessName: string;
+  vpa: string;
+  status: "active" | "suspended" | "pending_kyc";
+  createdAt: string;
+} | null = null;
 
 // --- Auth Routes (/auth/login.php & /auth/register.php) ---
 app.get(["/api/auth/me", "/auth/me"], (_req, res) => {
+  if (!currentUser) {
+    return res.json({ success: false, user: null, session: null });
+  }
   res.json({ success: true, user: currentUser, session: "payindia_session_active" });
 });
 
@@ -587,6 +590,7 @@ app.post(["/api/auth/register", "/auth/register.php", "/api/register", "/auth/re
 });
 
 app.post(["/api/auth/logout", "/auth/logout.php", "/api/logout", "/auth/logout"], (_req, res) => {
+  currentUser = null;
   res.json({ success: true, message: "Logged out. Redirecting to /auth/login.php" });
 });
 

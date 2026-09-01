@@ -2,18 +2,17 @@ import React, { useState } from 'react';
 import {
   Lock,
   UserCheck,
-  ShieldAlert,
   Building,
   Mail,
-  Phone,
-  CreditCard,
   KeyRound,
   ArrowRight,
-  Sparkles,
   Shield,
   CheckCircle2,
   AlertCircle,
-  HelpCircle,
+  Zap,
+  CreditCard,
+  Check,
+  Globe,
 } from 'lucide-react';
 import { User } from '../types';
 import { safeFetch } from '../utils/api';
@@ -30,7 +29,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   onLogout,
 }) => {
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'admin'>('login');
-  const [emailOrPhone, setEmailOrPhone] = useState('merchant@demotry.shop');
+  const [emailOrPhone, setEmailOrPhone] = useState('merchant@9tepay.com');
   const [password, setPassword] = useState('••••••••');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -65,7 +64,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
       );
 
       if (res.ok && res.data?.success && res.data.user) {
-        setSuccessMsg(`Welcome back, ${res.data.user.name}! Session established.`);
+        setSuccessMsg(`Welcome back, ${res.data.user.name}!`);
         onLoginSuccess(res.data.user);
         return;
       }
@@ -75,26 +74,26 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
       const fallbackUser: User = {
         id: targetRole === 'admin' ? 'usr_admin_001' : `usr_${Math.random().toString(36).substring(2, 7)}`,
         name: targetRole === 'admin' ? 'Master Administrator' : 'Merchant Owner',
-        email: payload.emailOrPhone || (targetRole === 'admin' ? 'admin@demotry.shop' : 'merchant@demotry.shop'),
+        email: payload.emailOrPhone || (targetRole === 'admin' ? 'admin@9tepay.com' : 'merchant@9tepay.com'),
         phone: '+91 98765 43210',
         role: targetRole,
-        businessName: targetRole === 'admin' ? 'Demotry Payment Systems' : '9tepay Merchant Services',
+        businessName: targetRole === 'admin' ? '9tepay Master Administration' : '9tepay Merchant Services',
         vpa: targetRole === 'admin' ? 'admin.gateway@icici' : '9tepay.business@icici',
         status: 'active',
         createdAt: new Date().toISOString(),
       };
-      setSuccessMsg(`Welcome back, ${fallbackUser.name}! Session established.`);
+      setSuccessMsg(`Welcome back, ${fallbackUser.name}!`);
       onLoginSuccess(fallbackUser);
-    } catch (err: any) {
+    } catch {
       // Local fallback on network failure
       const targetRole = authMode === 'admin' ? 'admin' : 'merchant';
       const fallbackUser: User = {
         id: targetRole === 'admin' ? 'usr_admin_001' : 'usr_merchant_01',
         name: targetRole === 'admin' ? 'Master Administrator' : 'Merchant Owner',
-        email: emailOrPhone || (targetRole === 'admin' ? 'admin@demotry.shop' : 'merchant@demotry.shop'),
+        email: emailOrPhone || (targetRole === 'admin' ? 'admin@9tepay.com' : 'merchant@9tepay.com'),
         phone: '+91 98765 43210',
         role: targetRole,
-        businessName: targetRole === 'admin' ? 'Demotry Payment Systems' : '9tepay Merchant Services',
+        businessName: targetRole === 'admin' ? '9tepay Master Administration' : '9tepay Merchant Services',
         vpa: targetRole === 'admin' ? 'admin.gateway@icici' : '9tepay.business@icici',
         status: 'active',
         createdAt: new Date().toISOString(),
@@ -152,38 +151,38 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Top Banner */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm relative overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-                9tepay Account Access
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 font-sans">
+                Enterprise UPI Gateway
               </span>
-              <span className="text-xs text-slate-400 font-mono">
-                Direct UPI Merchant &amp; Administrator Gateway
+              <span className="text-xs text-slate-500 font-sans">
+                Direct Merchant Settlement &amp; API Controls
               </span>
             </div>
-            <h2 className="text-lg font-bold text-white mt-1.5 flex items-center gap-2">
-              <Lock className="w-5 h-5 text-emerald-400" />
+            <h2 className="text-xl font-bold text-slate-900 mt-2 flex items-center gap-2">
+              <Lock className="w-5 h-5 text-blue-600" />
               <span>Merchant &amp; Admin Sign In</span>
             </h2>
-            <p className="text-xs text-slate-400 mt-1 max-w-2xl">
-              Log in to manage your settlement bank accounts, generate instant UPI QR payment links, and monitor live payment webhooks.
+            <p className="text-xs text-slate-600 mt-1 max-w-2xl">
+              Sign in to manage your settlement bank accounts, generate instant UPI QR payment links, and monitor live payment webhooks.
             </p>
           </div>
 
           {currentUser && (
-            <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-3.5 text-right shrink-0">
-              <div className="text-xs font-semibold text-white flex items-center justify-end gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <div className="bg-blue-50/70 border border-blue-100 rounded-xl p-3.5 text-right shrink-0">
+              <div className="text-xs font-semibold text-slate-900 flex items-center justify-end gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 <span>{currentUser.name}</span>
               </div>
-              <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                Logged in as: <span className="text-emerald-400 uppercase font-bold">{currentUser.role}</span>
+              <div className="text-[11px] text-slate-600 mt-0.5">
+                Role: <span className="text-blue-700 uppercase font-bold">{currentUser.role}</span>
               </div>
               <button
                 onClick={onLogout}
-                className="mt-2.5 px-3 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold cursor-pointer transition-all inline-flex items-center gap-1"
+                className="mt-2.5 px-3 py-1 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 rounded-lg text-xs font-semibold cursor-pointer transition-all inline-flex items-center gap-1 shadow-2xs"
               >
                 <span>Sign Out</span>
               </button>
@@ -195,15 +194,15 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
       {/* Main Authentication Box */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
         {/* Left Form Card */}
-        <div className="md:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+        <div className="md:col-span-7 bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-7 shadow-sm">
           {/* Mode Switcher */}
-          <div className="flex items-center gap-2 border-b border-slate-800 pb-4 mb-6">
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-4 mb-6">
             <button
               onClick={() => { setAuthMode('login'); setErrorMsg(''); }}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 authMode === 'login'
-                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/50'
-                  : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
               }`}
             >
               <UserCheck className="w-4 h-4" />
@@ -212,10 +211,10 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
 
             <button
               onClick={() => { setAuthMode('register'); setErrorMsg(''); }}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 authMode === 'register'
-                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/50'
-                  : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
               }`}
             >
               <Building className="w-4 h-4" />
@@ -224,29 +223,29 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
 
             <button
               onClick={() => { setAuthMode('admin'); setErrorMsg(''); }}
-              className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`py-2.5 px-3.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 authMode === 'admin'
-                  ? 'bg-amber-600 text-white shadow-lg shadow-amber-950/50'
-                  : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
               }`}
               title="Administrator Login"
             >
               <Shield className="w-4 h-4" />
-              <span>Admin Login</span>
+              <span>Admin</span>
             </button>
           </div>
 
           {/* Feedback messages */}
           {errorMsg && (
-            <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-300 flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+            <div className="mb-4 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 flex items-start gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+            <div className="mb-4 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
               <span>{successMsg}</span>
             </div>
           )}
@@ -255,7 +254,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
           {authMode === 'login' && (
             <form onSubmit={(e) => handleLogin(e)} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Email Address or Mobile Number
                 </label>
                 <div className="relative">
@@ -265,18 +264,18 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                     value={emailOrPhone}
                     onChange={(e) => setEmailOrPhone(e.target.value)}
                     required
-                    placeholder="merchant@demotry.shop or +91 98765 43210"
-                    className="w-full bg-slate-800 border border-slate-700 text-white text-xs sm:text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                    placeholder="merchant@9tepay.com or +91 98765 43210"
+                    className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs sm:text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
                   />
                 </div>
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-medium text-slate-300">
+                  <label className="block text-xs font-semibold text-slate-700">
                     Password
                   </label>
-                  <span className="text-[11px] text-emerald-400 hover:underline cursor-pointer">
+                  <span className="text-[11px] text-blue-600 hover:text-blue-700 hover:underline cursor-pointer">
                     Forgot password?
                   </span>
                 </div>
@@ -288,25 +287,25 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     placeholder="Enter password"
-                    className="w-full bg-slate-800 border border-slate-700 text-white text-xs sm:text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                    className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs sm:text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" defaultChecked className="rounded bg-slate-800 border-slate-700 text-emerald-600 focus:ring-emerald-500" />
+              <div className="flex items-center justify-between text-xs text-slate-600 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input type="checkbox" defaultChecked className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
                   <span>Remember Session (7 Days)</span>
                 </label>
-                <span className="font-mono text-[11px] text-slate-500">
-                  PHP Session: Secure
+                <span className="text-[11px] text-slate-500 font-medium">
+                  256-bit Encrypted
                 </span>
               </div>
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm py-3 rounded-xl transition-all shadow-lg shadow-emerald-950/60 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm py-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
               >
                 <span>Sign In to Merchant Dashboard</span>
                 <ArrowRight className="w-4 h-4" />
@@ -319,7 +318,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
             <form onSubmit={handleRegister} className="space-y-3.5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Business / Store Name *
                   </label>
                   <input
@@ -328,12 +327,12 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                     onChange={(e) => setRegBusinessName(e.target.value)}
                     required
                     placeholder="e.g. Apex Digital Store"
-                    className="w-full bg-slate-800 border border-slate-700 text-white text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Owner / Contact Name
                   </label>
                   <input
@@ -341,14 +340,14 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                     value={regOwnerName}
                     onChange={(e) => setRegOwnerName(e.target.value)}
                     placeholder="e.g. Abhay Sharma"
-                    className="w-full bg-slate-800 border border-slate-700 text-white text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Email Address *
                   </label>
                   <input
@@ -357,12 +356,12 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                     onChange={(e) => setRegEmail(e.target.value)}
                     required
                     placeholder="owner@store.com"
-                    className="w-full bg-slate-800 border border-slate-700 text-white text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Mobile Number
                   </label>
                   <input
@@ -370,17 +369,17 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                     value={regPhone}
                     onChange={(e) => setRegPhone(e.target.value)}
                     placeholder="+91 98765 00000"
-                    className="w-full bg-slate-800 border border-slate-700 text-white text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
                   />
                 </div>
               </div>
 
               {/* Settlement UPI VPA */}
-              <div className="p-3 rounded-xl bg-slate-800/60 border border-emerald-500/30 space-y-2">
+              <div className="p-3.5 rounded-xl bg-blue-50/50 border border-blue-200/80 space-y-2">
                 <div>
-                  <label className="block text-[11px] font-bold text-emerald-400 mb-1 flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-blue-900 mb-1 flex items-center justify-between">
                     <span>Receiver UPI VPA (Direct Settlement) *</span>
-                    <span className="text-[10px] text-slate-400 font-normal">0% Escrow Fee</span>
+                    <span className="text-[10px] text-blue-700 font-semibold bg-blue-100/80 px-2 py-0.5 rounded">0% Fee</span>
                   </label>
                   <input
                     type="text"
@@ -388,17 +387,17 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                     onChange={(e) => setRegVpa(e.target.value)}
                     required
                     placeholder="yourname@okaxis or business@icici"
-                    className="w-full bg-slate-800 border border-slate-700 text-emerald-300 font-mono text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-white border border-blue-200 text-blue-900 font-mono text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
                   />
                 </div>
-                <p className="text-[10px] text-slate-400">
+                <p className="text-[11px] text-slate-600">
                   All customer payments generated through this gateway will route directly to this UPI address.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Bank Account (Optional)
                   </label>
                   <input
@@ -406,12 +405,12 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                     value={regBankAccount}
                     onChange={(e) => setRegBankAccount(e.target.value)}
                     placeholder="919876543210"
-                    className="w-full bg-slate-800 border border-slate-700 text-white text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                     IFSC Code (Optional)
                   </label>
                   <input
@@ -419,7 +418,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                     value={regIfsc}
                     onChange={(e) => setRegIfsc(e.target.value)}
                     placeholder="ICIC0000102"
-                    className="w-full bg-slate-800 border border-slate-700 text-white text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
                   />
                 </div>
               </div>
@@ -427,9 +426,9 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm py-3 rounded-xl transition-all shadow-lg shadow-emerald-950/60 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm py-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
-                <span>Create Merchant Account & Get API Keys</span>
+                <span>Create Merchant Account &amp; Get API Keys</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
@@ -437,39 +436,39 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
 
           {/* Form: Admin Login */}
           {authMode === 'admin' && (
-            <form onSubmit={(e) => handleLogin(e, { email: 'admin@demotry.shop', role: 'admin' })} className="space-y-4">
-              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300">
-                Superadmin portal credentials grant full access to master system diagnostics, all registered merchants, fee controls, and SMS reconciliation engines.
+            <form onSubmit={(e) => handleLogin(e, { email: 'admin@9tepay.com', role: 'admin' })} className="space-y-4">
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700">
+                Superadmin credentials grant full access to master system diagnostics, all registered merchants, fee controls, and SMS reconciliation engines.
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Superadmin Email
                 </label>
                 <input
                   type="text"
-                  value="admin@demotry.shop"
+                  value="admin@9tepay.com"
                   readOnly
-                  className="w-full bg-slate-800/60 border border-slate-700 text-slate-300 text-xs sm:text-sm rounded-xl px-4 py-2.5 font-mono cursor-not-allowed"
+                  className="w-full bg-slate-100 border border-slate-200 text-slate-700 text-xs sm:text-sm rounded-xl px-4 py-2.5 font-mono cursor-not-allowed"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Admin Passcode
                 </label>
                 <input
                   type="password"
                   value="••••••••••••"
                   readOnly
-                  className="w-full bg-slate-800/60 border border-slate-700 text-slate-300 text-xs sm:text-sm rounded-xl px-4 py-2.5 font-mono"
+                  className="w-full bg-slate-100 border border-slate-200 text-slate-700 text-xs sm:text-sm rounded-xl px-4 py-2.5 font-mono"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs sm:text-sm py-3 rounded-xl transition-all shadow-lg shadow-amber-950/60 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs sm:text-sm py-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 <Shield className="w-4 h-4" />
                 <span>Sign In as Master Administrator</span>
@@ -478,85 +477,66 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
           )}
         </div>
 
-        {/* Right Quick-Demo & Account Switcher Card */}
+        {/* Right Feature Overview Card (Replaces trial accounts) */}
         <div className="md:col-span-5 space-y-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-            <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-emerald-400" />
-              <span>1-Click Fast Trial Accounts</span>
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm">
+            <div className="flex items-center gap-2 text-blue-700 font-bold text-xs uppercase tracking-wider mb-2">
+              <Zap className="w-4 h-4" />
+              <span>Gateway Features</span>
+            </div>
+            <h3 className="text-base font-bold text-slate-900 mb-2">
+              Next-Generation Direct UPI
             </h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Instantly test the gateway as different roles without typing credentials:
+            <p className="text-xs text-slate-600 mb-5 leading-relaxed">
+              Eliminate third-party aggregator delays and high transaction fees with direct P2P/P2M settlement.
             </p>
 
-            <div className="space-y-2.5">
-              <button
-                onClick={() => handleLogin(undefined, { email: 'merchant@demotry.shop', role: 'merchant' })}
-                className="w-full p-3 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-xl text-left transition-all flex items-center justify-between group cursor-pointer"
-              >
-                <div>
-                  <div className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors">
-                    Lolapay Merchant Services
-                  </div>
-                  <div className="text-[11px] text-slate-400 font-mono">
-                    VPA: lolapay.business@icici
-                  </div>
+            <div className="space-y-3.5">
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5 border border-blue-100">
+                  <Check className="w-3.5 h-3.5" />
                 </div>
-                <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  Active
-                </span>
-              </button>
+                <div>
+                  <h4 className="text-xs font-semibold text-slate-900">Direct Bank Settlement</h4>
+                  <p className="text-[11px] text-slate-500">Customer payments hit your bank account directly via UPI VPA.</p>
+                </div>
+              </div>
 
-              <button
-                onClick={() => handleLogin(undefined, { email: 'support@payindia.in', role: 'merchant' })}
-                className="w-full p-3 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-xl text-left transition-all flex items-center justify-between group cursor-pointer"
-              >
-                <div>
-                  <div className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors">
-                    PayIndia QuickPay Global
-                  </div>
-                  <div className="text-[11px] text-slate-400 font-mono">
-                    VPA: payindia.settle@hdfcbank
-                  </div>
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5 border border-blue-100">
+                  <CreditCard className="w-3.5 h-3.5" />
                 </div>
-                <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  Active
-                </span>
-              </button>
+                <div>
+                  <h4 className="text-xs font-semibold text-slate-900">Multi-App Deeplinking</h4>
+                  <p className="text-[11px] text-slate-500">One-tap checkout launches Google Pay, PhonePe, Paytm, and BHIM.</p>
+                </div>
+              </div>
 
-              <button
-                onClick={() => handleLogin(undefined, { email: 'admin@demotry.shop', role: 'admin' })}
-                className="w-full p-3 bg-slate-800 hover:bg-slate-700/80 border border-amber-500/30 rounded-xl text-left transition-all flex items-center justify-between group cursor-pointer"
-              >
-                <div>
-                  <div className="text-xs font-bold text-amber-300 group-hover:text-amber-200 transition-colors flex items-center gap-1.5">
-                    <Shield className="w-3.5 h-3.5" />
-                    <span>Master Superadmin</span>
-                  </div>
-                  <div className="text-[11px] text-slate-400 font-mono">
-                    Global System Governance
-                  </div>
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5 border border-blue-100">
+                  <Globe className="w-3.5 h-3.5" />
                 </div>
-                <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                  Superadmin
-                </span>
-              </button>
+                <div>
+                  <h4 className="text-xs font-semibold text-slate-900">Real-Time Webhooks</h4>
+                  <p className="text-[11px] text-slate-500">Instant HMAC SHA-256 signed payment confirmation to your server.</p>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl text-xs space-y-3">
-            <h4 className="font-bold text-white flex items-center gap-1.5">
-              <ShieldAlert className="w-4 h-4 text-amber-400" />
-              <span>Hostinger Architecture Characteristics</span>
-            </h4>
-            <ul className="space-y-1.5 text-slate-400 list-disc list-inside">
-              <li>Sessions stored via PHP standard cookie <code className="text-slate-300">payindia_session</code></li>
-              <li>Dual white-labeling identified: Lolapay V2 &amp; PayIndia</li>
-              <li>P2P Direct Intent Routing bypasses nodal escrow accounts</li>
-            </ul>
+          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-5 text-white shadow-sm">
+            <div className="flex items-center gap-2 text-blue-100 text-xs font-semibold mb-1">
+              <Shield className="w-4 h-4" />
+              <span>Production Ready</span>
+            </div>
+            <h4 className="text-sm font-bold">Standard UPI &amp; Intent Compliance</h4>
+            <p className="text-xs text-blue-100/90 mt-1 leading-relaxed">
+              Standardized NPCI URI schema with dynamic checksum validation and multi-bank load balancing.
+            </p>
           </div>
         </div>
       </div>
     </div>
   );
 };
+
