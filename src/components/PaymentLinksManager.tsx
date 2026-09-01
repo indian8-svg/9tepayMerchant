@@ -35,7 +35,7 @@ interface PaymentLinksManagerProps {
     note?: string;
     bankAccountId?: string;
   }) => Promise<Order>;
-  onOpenCheckout: (order: Order) => void;
+  onOpenCheckout: (order: Order, openInNewTab?: boolean) => void;
   onCancelOrder: (orderId: string) => void;
 }
 
@@ -215,12 +215,12 @@ export const PaymentLinksManager: React.FC<PaymentLinksManagerProps> = ({
               )}
             </button>
             <button
-              onClick={() => onOpenCheckout(justCreatedOrder)}
+              onClick={() => onOpenCheckout(justCreatedOrder, true)}
               className="px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors cursor-pointer border border-slate-200 inline-flex items-center gap-1.5 shadow-xs"
-              title="Preview Customer Checkout"
+              title="Open Payment Link in New Tab"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span>Preview</span>
+              <span>Open Link</span>
             </button>
             <button
               onClick={() => setJustCreatedOrder(null)}
@@ -475,12 +475,12 @@ export const PaymentLinksManager: React.FC<PaymentLinksManagerProps> = ({
 
                         {/* Open Checkout Button */}
                         <button
-                          onClick={() => onOpenCheckout(order)}
+                          onClick={() => onOpenCheckout(order, true)}
                           className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition-all cursor-pointer inline-flex items-center gap-1 shadow-xs"
-                          title="Open Hosted Checkout"
+                          title="Open Payment Link in New Tab"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
-                          <span>Open</span>
+                          <span>Open Link</span>
                         </button>
 
                         {/* Cancel Button */}

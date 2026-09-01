@@ -10,6 +10,7 @@ import {
   Building,
   QrCode,
   Link2,
+  XCircle,
 } from 'lucide-react';
 import { Order, MerchantProfile, WebhookLog, User, BankAccountQR, BankRoutingStrategy, SecurityEvent } from './types';
 import { safeFetch, fetchJson, api } from './utils/api';
@@ -20,7 +21,34 @@ import { DeveloperApiDocs } from './components/DeveloperApiDocs';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AuthPortal } from './components/AuthPortal';
 
+function getOrderIdFromUrl(): string | null {
+  try {
+    const path = window.location.pathname;
+    const match = path.match(/\/checkout\/([^\/\?#]+)/);
+    if (match && match[1]) {
+      return decodeURIComponent(match[1]);
+    }
+
+    const hash = window.location.hash;
+    const hashMatch = hash.match(/#\/checkout\/([^\/\?#]+)/);
+    if (hashMatch && hashMatch[1]) {
+      return decodeURIComponent(hashMatch[1]);
+    }
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const qOrderId = searchParams.get('orderId') || searchParams.get('id');
+    if (qOrderId) {
+      return qOrderId;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
 export function App() {
+  const initialUrlOrderId = getOrderIdFromUrl();
+
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
       const saved = localStorage.getItem('9tepay_user');
@@ -36,6 +64,9 @@ export function App() {
   const [activeView, setActiveView] = useState<
     'dashboard' | 'payment_links' | 'checkout' | 'admin' | 'auth' | 'docs'
   >(() => {
+    if (initialUrlOrderId) {
+      return 'checkout';
+    }
     try {
       const saved = localStorage.getItem('9tepay_user');
       if (saved) {
@@ -68,6 +99,8 @@ export function App() {
   });
   const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isLoadingCheckout, setIsLoadingCheckout] = useState<boolean>(Boolean(initialUrlOrderId));
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   // Fetch initial backend state
   const refreshAll = async () => {
@@ -123,13 +156,112 @@ export function App() {
     }
   };
 
+  const loadCheckoutOrder = async (orderIdToLoad: string) => {
+    setIsLoadingCheckout(true);
+    setCheckoutError(null);
+    try {
+      const res = await safeFetch<Order>(`/api/orders/${orderIdToLoad}`);
+      if (res.ok && res.data && res.data.id) {
+        setSelectedOrder(res.data);
+      } else {
+        const localMatch = orders.find(
+          (o) => o.id === orderIdToLoad || o.orderNumber === orderIdToLoad
+        );
+        if (localMatch) {
+          setSelectedOrder(localMatch);
+        } else {
+          try {
+            const savedOrders = localStorage.getItem('9tepay_orders');
+            if (savedOrders) {
+              const parsed: Order[] = JSON.parse(savedOrders);
+              const found = parsed.find(
+                (o) => o.id === orderIdToLoad || o.orderNumber === orderIdToLoad
+              );
+              if (found) {
+                setSelectedOrder(found);
+                setIsLoadingCheckout(false);
+                return;
+              }
+            }
+          } catch {}
+          setCheckoutError(`Payment link "${orderIdToLoad}" not found or has expired.`);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load checkout order from URL:', err);
+      setCheckoutError('Unable to load payment link. Please check your network connection.');
+    } finally {
+      setIsLoadingCheckout(false);
+    }
+  };
+
   useEffect(() => {
     refreshAll();
   }, []);
 
-  const handleOpenCheckout = (order: Order) => {
+  useEffect(() => {
+    if (orders.length > 0) {
+      try {
+        localStorage.setItem('9tepay_orders', JSON.stringify(orders));
+      } catch {}
+    }
+  }, [orders]);
+
+  useEffect(() => {
+    const urlOrderId = getOrderIdFromUrl();
+    if (urlOrderId) {
+      setActiveView('checkout');
+      loadCheckoutOrder(urlOrderId);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const urlOrderId = getOrderIdFromUrl();
+      if (urlOrderId) {
+        setActiveView('checkout');
+        loadCheckoutOrder(urlOrderId);
+      } else {
+        const saved = localStorage.getItem('9tepay_user');
+        if (saved) {
+          try {
+            const u = JSON.parse(saved);
+            setActiveView(u.role === 'admin' ? 'admin' : 'dashboard');
+          } catch {
+            setActiveView('auth');
+          }
+        } else {
+          setActiveView('auth');
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [orders]);
+
+  const handleOpenCheckout = (order: Order, openInNewTab = false) => {
+    if (openInNewTab) {
+      window.open(`${window.location.origin}/checkout/${order.id}`, '_blank');
+      return;
+    }
     setSelectedOrder(order);
     setActiveView('checkout');
+    setCheckoutError(null);
+    if (window.history && window.history.pushState) {
+      window.history.pushState({ orderId: order.id }, '', `/checkout/${order.id}`);
+    }
+  };
+
+  const handleViewChange = (
+    newView: 'dashboard' | 'payment_links' | 'checkout' | 'admin' | 'auth' | 'docs'
+  ) => {
+    setActiveView(newView);
+    if (newView !== 'checkout' && window.history && window.history.pushState) {
+      if (window.location.pathname.startsWith('/checkout/')) {
+        window.history.pushState(null, '', '/');
+      }
+    }
   };
 
   const handlePaymentSuccess = async (updatedOrder: Order) => {
@@ -423,7 +555,7 @@ export function App() {
   };
 
   // Safe view resolution based on authentication state
-  const isPublicCheckout = activeView === 'checkout' && selectedOrder;
+  const isPublicCheckout = activeView === 'checkout';
   const effectiveView = !currentUser && !isPublicCheckout ? 'auth' : activeView;
 
   return (
@@ -457,7 +589,7 @@ export function App() {
                 {/* Superadmin Panel - ONLY SHOWN IF USER IS ADMIN */}
                 {currentUser.role === 'admin' && (
                   <button
-                    onClick={() => setActiveView('admin')}
+                    onClick={() => handleViewChange('admin')}
                     className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                       effectiveView === 'admin'
                         ? 'bg-slate-900 text-white shadow-xs'
@@ -472,7 +604,7 @@ export function App() {
 
                 {/* Merchant Dashboard */}
                 <button
-                  onClick={() => setActiveView('dashboard')}
+                  onClick={() => handleViewChange('dashboard')}
                   className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                     effectiveView === 'dashboard'
                       ? 'bg-blue-600 text-white shadow-xs'
@@ -486,7 +618,7 @@ export function App() {
 
                 {/* Payment Links Manager */}
                 <button
-                  onClick={() => setActiveView('payment_links')}
+                  onClick={() => handleViewChange('payment_links')}
                   className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                     effectiveView === 'payment_links'
                       ? 'bg-blue-600 text-white shadow-xs'
@@ -500,7 +632,7 @@ export function App() {
 
                 {/* Developer API */}
                 <button
-                  onClick={() => setActiveView('docs')}
+                  onClick={() => handleViewChange('docs')}
                   className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                     effectiveView === 'docs'
                       ? 'bg-blue-600 text-white shadow-xs'
@@ -546,13 +678,34 @@ export function App() {
       <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 flex-1">
         {!currentUser ? (
           /* When signed out: ONLY show Public Checkout if viewing order or AuthPortal Login */
-          isPublicCheckout && selectedOrder ? (
-            <HostedCheckout
-              order={selectedOrder}
-              bankAccounts={bankAccounts}
-              onPaymentSuccess={handlePaymentSuccess}
-              onBackToDashboard={() => setActiveView('auth')}
-            />
+          isPublicCheckout ? (
+            isLoadingCheckout ? (
+              <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+                <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-sm font-semibold text-slate-700 font-sans">Loading Secure Payment Checkout...</p>
+              </div>
+            ) : selectedOrder ? (
+              <HostedCheckout
+                order={selectedOrder}
+                bankAccounts={bankAccounts}
+                onPaymentSuccess={handlePaymentSuccess}
+                onBackToDashboard={() => handleViewChange('auth')}
+              />
+            ) : (
+              <div className="max-w-md mx-auto my-12 bg-white border border-slate-200 rounded-2xl p-6 text-center space-y-4 shadow-sm">
+                <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+                  <XCircle className="w-6 h-6" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900 font-sans">Payment Link Unavailable</h3>
+                <p className="text-xs text-slate-500 font-sans">{checkoutError || 'This payment link does not exist or has expired.'}</p>
+                <button
+                  onClick={() => handleViewChange('auth')}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 cursor-pointer transition-colors shadow-xs"
+                >
+                  Go to Merchant Login
+                </button>
+              </div>
+            )
           ) : (
             <AuthPortal
               currentUser={null}
@@ -609,13 +762,34 @@ export function App() {
             )}
 
             {/* VIEW 4: Hosted Checkout */}
-            {effectiveView === 'checkout' && selectedOrder && (
-              <HostedCheckout
-                order={selectedOrder}
-                bankAccounts={bankAccounts}
-                onPaymentSuccess={handlePaymentSuccess}
-                onBackToDashboard={() => setActiveView(currentUser.role === 'admin' ? 'admin' : 'dashboard')}
-              />
+            {effectiveView === 'checkout' && (
+              isLoadingCheckout ? (
+                <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+                  <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-sm font-semibold text-slate-700 font-sans">Loading Secure Payment Checkout...</p>
+                </div>
+              ) : selectedOrder ? (
+                <HostedCheckout
+                  order={selectedOrder}
+                  bankAccounts={bankAccounts}
+                  onPaymentSuccess={handlePaymentSuccess}
+                  onBackToDashboard={() => handleViewChange(currentUser.role === 'admin' ? 'admin' : 'dashboard')}
+                />
+              ) : (
+                <div className="max-w-md mx-auto my-12 bg-white border border-slate-200 rounded-2xl p-6 text-center space-y-4 shadow-sm">
+                  <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+                    <XCircle className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900 font-sans">Payment Link Unavailable</h3>
+                  <p className="text-xs text-slate-500 font-sans">{checkoutError || 'This payment link does not exist or has expired.'}</p>
+                  <button
+                    onClick={() => handleViewChange(currentUser.role === 'admin' ? 'admin' : 'dashboard')}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 cursor-pointer transition-colors shadow-xs"
+                  >
+                    Back to Dashboard
+                  </button>
+                </div>
+              )
             )}
 
             {/* VIEW 5: Login & Account Portal */}
