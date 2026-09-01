@@ -30,7 +30,7 @@ export const TransactionsManager: React.FC<TransactionsManagerProps> = ({
   onOpenCheckout,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'PAID' | 'FAILED'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'PAID' | 'FAILED' | 'AWAITING_VERIFICATION'>('ALL');
   const [methodFilter, setMethodFilter] = useState<'ALL' | 'UPI'>('ALL');
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<Order | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -51,6 +51,7 @@ export const TransactionsManager: React.FC<TransactionsManagerProps> = ({
   const filteredOrders = orders.filter((o) => {
     // Status filter
     if (statusFilter === 'PENDING' && o.status !== 'PENDING') return false;
+    if (statusFilter === 'AWAITING_VERIFICATION' && (o.status !== 'PENDING' || !o.utrNumber)) return false;
     if (statusFilter === 'PAID' && o.status !== 'PAID') return false;
     if (statusFilter === 'FAILED' && o.status !== 'EXPIRED' && o.status !== 'FAILED') return false;
 
@@ -149,7 +150,8 @@ export const TransactionsManager: React.FC<TransactionsManagerProps> = ({
               className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-700 transition-all font-medium cursor-pointer"
             >
               <option value="ALL">All Statuses</option>
-              <option value="PENDING">Pending (Review Required)</option>
+              <option value="AWAITING_VERIFICATION">Awaiting Verification (With UTR)</option>
+              <option value="PENDING">Pending (All)</option>
               <option value="PAID">Success (Paid)</option>
               <option value="FAILED">Failed / Expired</option>
             </select>

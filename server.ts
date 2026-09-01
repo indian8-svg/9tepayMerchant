@@ -1185,7 +1185,7 @@ app.get("/api/orders", requireAuth, (req, res) => {
   if (req.user.vpa) userVpas.push(safeLower(req.user.vpa));
 
   const userOrders = enrichedOrders.filter(
-    (o) => userVpas.includes(safeLower(o.merchantVpa)) || o.bankAccountId?.includes(userId)
+    (o) => userVpas.includes(safeLower(o.merchantVpa)) || o.bankAccountId?.includes(userId) || o.userId === userId
   );
   return res.json(userOrders);
 });
