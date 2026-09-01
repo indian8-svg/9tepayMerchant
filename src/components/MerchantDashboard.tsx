@@ -71,9 +71,9 @@ interface MerchantDashboardProps {
 }
 
 export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
-  orders,
-  profile,
-  webhookLogs,
+  orders = [],
+  profile = {} as MerchantProfile,
+  webhookLogs = [],
   bankAccounts = [],
   onApproveOrder = async (_orderId: string) => {},
   onRejectOrder = async (_orderId: string) => {},
@@ -110,24 +110,27 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
   const [selectedBankId, setSelectedBankId] = useState<string>('');
 
   // Settings form states
-  const [editBusinessName, setEditBusinessName] = useState(profile.businessName);
-  const [editVpa, setEditVpa] = useState(profile.vpa);
-  const [editWebhookUrl, setEditWebhookUrl] = useState(profile.webhookUrl);
-  const [editAutoApprove, setEditAutoApprove] = useState(profile.autoApproveUtr);
+  const [editBusinessName, setEditBusinessName] = useState(profile?.businessName || '');
+  const [editVpa, setEditVpa] = useState(profile?.vpa || '');
+  const [editWebhookUrl, setEditWebhookUrl] = useState(profile?.webhookUrl || '');
+  const [editAutoApprove, setEditAutoApprove] = useState(profile?.autoApproveUtr ?? true);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
 
   // Computations
-  const paidOrders = orders.filter((o) => o.status === 'PAID');
-  const pendingOrders = orders.filter((o) => o.status === 'PENDING');
-  const expiredOrders = orders.filter((o) => o.status === 'EXPIRED');
-  const totalVolume = paidOrders.reduce((acc, curr) => acc + curr.amount, 0);
-  const todayVolume = paidOrders.slice(0, 4).reduce((acc, curr) => acc + curr.amount, 0);
-  const successRate = orders.length ? Math.round((paidOrders.length / orders.length) * 100) : 100;
+  const safeOrders = orders || [];
+  const safeBanks = bankAccounts || [];
+  const paidOrders = safeOrders.filter((o) => o?.status === 'PAID');
+  const pendingOrders = safeOrders.filter((o) => o?.status === 'PENDING');
+  const expiredOrders = safeOrders.filter((o) => o?.status === 'EXPIRED');
+  const totalVolume = paidOrders.reduce((acc, curr) => acc + (curr?.amount || 0), 0);
+  const todayVolume = paidOrders.slice(0, 4).reduce((acc, curr) => acc + (curr?.amount || 0), 0);
+  const successRate = safeOrders.length ? Math.round((paidOrders.length / safeOrders.length) * 100) : 100;
   const avgTicketSize = paidOrders.length ? Math.round(totalVolume / paidOrders.length) : 0;
-  const activeBanksCount = bankAccounts.filter((b) => b.isActive).length;
+  const activeBanksCount = safeBanks.filter((b) => b?.isActive).length;
 
-  const filteredOrders = orders.filter((o) => {
+  const filteredOrders = safeOrders.filter((o) => {
+    if (!o) return false;
     if (orderFilter === 'ALL') return true;
     return o.status === orderFilter;
   });
@@ -268,7 +271,7 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
             {formatCurrency(totalVolume)}
           </div>
           <div className="text-[11px] text-blue-600 mt-1 flex items-center gap-1 font-medium font-mono">
-            <span>Direct to VPA: {profile.vpa}</span>
+            <span>Direct to VPA: {profile?.vpa || 'Not configured'}</span>
           </div>
         </div>
 
@@ -313,7 +316,7 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
               Primary Settlement VPA
             </div>
             <div className="text-xs font-mono text-slate-800 font-bold truncate mt-1">
-              {profile.vpa}
+              {profile?.vpa || 'Not configured'}
             </div>
           </div>
           <button

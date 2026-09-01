@@ -48,7 +48,9 @@ export const TransactionsManager: React.FC<TransactionsManagerProps> = ({
   }, [orders]);
 
   // Filter orders
-  const filteredOrders = orders.filter((o) => {
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const filteredOrders = safeOrders.filter((o) => {
+    if (!o) return false;
     // Status filter
     if (statusFilter === 'PENDING' && o.status !== 'PENDING') return false;
     if (statusFilter === 'AWAITING_VERIFICATION' && (o.status !== 'PENDING' || !o.utrNumber)) return false;
@@ -112,9 +114,10 @@ export const TransactionsManager: React.FC<TransactionsManagerProps> = ({
     }
   };
 
-  // Decode potential HTML entities like &#039; in customer names
-  const sanitizeName = (nameStr: string) => {
-    return nameStr.replace(/&#039;/g, "'").replace(/&amp;/g, "&");
+  // Decode potential HTML entities like &#039; in customer names safely
+  const sanitizeName = (nameStr?: string | null) => {
+    if (!nameStr) return 'Customer';
+    return String(nameStr).replace(/&#039;/g, "'").replace(/&amp;/g, "&");
   };
 
   return (

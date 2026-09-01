@@ -11,6 +11,14 @@
     <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
+    <script>
+      window.addEventListener('error', function(e) {
+        document.body.innerHTML = '<div style="color:red; font-family:sans-serif; padding: 20px; z-index:9999; position:relative;"><h1>CRASH LOG: ' + String(e.error?.message || e.message) + '</h1><pre>' + String(e.error?.stack || '') + '</pre></div>';
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        document.body.innerHTML = '<div style="color:red; font-family:sans-serif; padding: 20px; z-index:9999; position:relative;"><h1>UNHANDLED PROMISE: ' + String(e.reason) + '</h1></div>';
+      });
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

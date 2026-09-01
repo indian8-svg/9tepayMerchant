@@ -20,9 +20,10 @@ export const CustomersManager: React.FC<CustomersManagerProps> = ({ orders }) =>
     lastActivity: string;
   }>();
 
-  orders.forEach((o) => {
+  (orders || []).forEach((o) => {
+    if (!o) return;
     const rawName = o.customerName || 'Guest Customer';
-    const name = rawName.replace(/&#039;/g, "'").replace(/&amp;/g, "&");
+    const name = String(rawName).replace(/&#039;/g, "'").replace(/&amp;/g, "&");
     const existing = customersMap.get(name);
     const isPaid = o.status === 'PAID';
 
@@ -30,19 +31,21 @@ export const CustomersManager: React.FC<CustomersManagerProps> = ({ orders }) =>
       existing.totalOrders += 1;
       if (isPaid) {
         existing.successfulOrders += 1;
-        existing.totalPaid += o.amount;
+        existing.totalPaid += o.amount || 0;
       }
-      if (new Date(o.createdAt) > new Date(existing.lastActivity)) {
-        existing.lastActivity = o.createdAt;
-      }
+      try {
+        if (new Date(o.createdAt).getTime() > new Date(existing.lastActivity).getTime()) {
+          existing.lastActivity = o.createdAt;
+        }
+      } catch {}
     } else {
       customersMap.set(name, {
         name,
         phone: o.customerPhone || 'Not provided',
         totalOrders: 1,
         successfulOrders: isPaid ? 1 : 0,
-        totalPaid: isPaid ? o.amount : 0,
-        lastActivity: o.createdAt,
+        totalPaid: isPaid ? (o.amount || 0) : 0,
+        lastActivity: o.createdAt || new Date().toISOString(),
       });
     }
   });
