@@ -22,11 +22,212 @@ declare global {
 const app = express();
 const PORT = 3000;
 
+interface SecurityEventItem {
+  id: string;
+  type: "UTR_DUPLICATE_ATTEMPT" | "RATE_LIMIT_EXCEEDED" | "SIGNATURE_MISMATCH" | "INVALID_UTR_FORMAT" | "IP_ANOMALY";
+  severity: "high" | "medium" | "critical" | "info";
+  timestamp: string;
+  ipAddress: string;
+  details: string;
+  orderNumber?: string;
+  utr?: string;
+  status: "BLOCKED" | "FLAGGED" | "RESOLVED";
+}
+
+// Security Storage Maps
+const userSecurityLogsMap = new Map<string, SecurityEventItem[]>();
+const userWebhookLogsMap = new Map<string, any[]>();
+
+function getSecurityLogsForUser(userId: string): SecurityEventItem[] {
+  if (!userSecurityLogsMap.has(userId)) {
+    userSecurityLogsMap.set(userId, []);
+  }
+  return userSecurityLogsMap.get(userId)!;
+}
+
+function getWebhookLogsForUser(userId: string): any[] {
+  if (!userWebhookLogsMap.has(userId)) {
+    userWebhookLogsMap.set(userId, []);
+  }
+  return userWebhookLogsMap.get(userId)!;
+}
+
+// In-Memory Rate Limiting tracking maps
+const ipRequestCounts = new Map<string, { count: number; resetTime: number }>();
+const ipLoginCounts = new Map<string, { count: number; resetTime: number }>();
+const failedLoginAttempts = new Map<string, { count: number; lockTime: number }>();
+
+function globalRateLimiter(req: any, res: any, next: any) {
+  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1";
+  const now = Date.now();
+  
+  // Rate Limit for all API requests: Max 150 requests per minute
+  const limitWindow = 60 * 1000;
+  const maxRequests = 150;
+  
+  const record = ipRequestCounts.get(ip);
+  if (!record || now > record.resetTime) {
+    ipRequestCounts.set(ip, { count: 1, resetTime: now + limitWindow });
+  } else {
+    record.count++;
+    if (record.count > maxRequests) {
+      const secEvt: SecurityEventItem = {
+        id: `sec_evt_rl_${Date.now().toString().slice(-6)}`,
+        type: "RATE_LIMIT_EXCEEDED",
+        severity: "medium",
+        timestamp: new Date().toISOString(),
+        ipAddress: String(ip).split(",")[0].trim(),
+        details: `IP exceeded global API rate limit (${record.count} requests in window)`,
+        status: "BLOCKED",
+      };
+      
+      try {
+        getSecurityLogsForUser("usr_admin_001").unshift(secEvt);
+      } catch {}
+      
+      return res.status(429).json({
+        success: false,
+        error: "Too many requests. Please slow down and try again.",
+      });
+    }
+  }
+  next();
+}
+
+function authRateLimiter(req: any, res: any, next: any) {
+  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1";
+  const now = Date.now();
+
+  // IP base limit: max 15 requests to login/register per 3 minutes
+  const limitWindow = 3 * 60 * 1000;
+  const maxAttempts = 15;
+
+  const record = ipLoginCounts.get(ip);
+  if (!record || now > record.resetTime) {
+    ipLoginCounts.set(ip, { count: 1, resetTime: now + limitWindow });
+  } else {
+    record.count++;
+    if (record.count > maxAttempts) {
+      return res.status(429).json({
+        success: false,
+        error: "Too many authentication requests from this IP. Please try again later.",
+      });
+    }
+  }
+
+  // Account Lockout check based on Email/Phone
+  const { emailOrPhone } = req.body || {};
+  if (emailOrPhone) {
+    const identity = String(emailOrPhone).trim().toLowerCase();
+    const lockout = failedLoginAttempts.get(identity);
+    if (lockout && lockout.count >= 5 && now < lockout.lockTime) {
+      const remainingSeconds = Math.ceil((lockout.lockTime - now) / 1000);
+      return res.status(423).json({
+        success: false,
+        error: `This account has been temporarily locked due to multiple failed login attempts. Please try again in ${remainingSeconds} seconds.`,
+      });
+    }
+  }
+
+  next();
+}
+
+function trackFailedAttempt(email: string) {
+  const identity = String(email).trim().toLowerCase();
+  const now = Date.now();
+  const current = failedLoginAttempts.get(identity);
+  if (!current) {
+    failedLoginAttempts.set(identity, { count: 1, lockTime: 0 });
+  } else {
+    current.count++;
+    if (current.count >= 5) {
+      current.lockTime = now + 15 * 60 * 1000;
+      
+      const secEvt: SecurityEventItem = {
+        id: `sec_evt_bf_lock_${Date.now().toString().slice(-6)}`,
+        type: "IP_ANOMALY",
+        severity: "critical",
+        timestamp: new Date().toISOString(),
+        ipAddress: "System",
+        details: `Account ${identity} locked out due to excessive failed logins (5 attempts)`,
+        status: "BLOCKED",
+      };
+      getSecurityLogsForUser("usr_admin_001").unshift(secEvt);
+    }
+  }
+}
+
+// SQL injection & XSS attack pattern scanner
+const DANGEROUS_PATTERNS = [
+  /union\s+select/i,
+  /select\s+.*\s+from/i,
+  /insert\s+into/i,
+  /delete\s+from/i,
+  /drop\s+table/i,
+  /or\s+1\s*=\s*1/i,
+  /['"]\s*or\s*['"]/i,
+  /['"]\s*and\s*['"]/i,
+  /--/,
+  /xp_cmdshell/i,
+  /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+  /javascript:/i,
+  /onload\s*=/i,
+  /onerror\s*=/i
+];
+
+function sanitizeValue(val: any): boolean {
+  if (typeof val === "string") {
+    for (const pattern of DANGEROUS_PATTERNS) {
+      if (pattern.test(val)) {
+        return false;
+      }
+    }
+  } else if (typeof val === "object" && val !== null) {
+    for (const k in val) {
+      if (k === "__proto__" || k === "constructor" || k === "prototype") {
+        return false;
+      }
+      if (!sanitizeValue(val[k])) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function injectionGuard(req: any, res: any, next: any) {
+  if (!sanitizeValue(req.query) || !sanitizeValue(req.params) || !sanitizeValue(req.body)) {
+    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1";
+    const secEvt: SecurityEventItem = {
+      id: `sec_evt_inj_${Date.now().toString().slice(-6)}`,
+      type: "IP_ANOMALY",
+      severity: "critical",
+      timestamp: new Date().toISOString(),
+      ipAddress: String(ip).split(",")[0].trim(),
+      details: `Injection attempt blocked on path: ${req.path}`,
+      status: "BLOCKED",
+    };
+    
+    try {
+      getSecurityLogsForUser("usr_admin_001").unshift(secEvt);
+    } catch {}
+
+    return res.status(400).json({
+      success: false,
+      error: "Malicious payload or injection pattern detected. Request blocked for security.",
+    });
+  }
+  next();
+}
+
+// Global Middlewares setup
+app.use(globalRateLimiter);
+app.use(injectionGuard);
+
 // CORS settings for Vercel domains, localhost, and live previews
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (origin) {
-    // Allow Vercel domains (*.vercel.app), localhost, Cloud Run, and general origins
     if (
       origin.endsWith(".vercel.app") ||
       origin.includes("localhost") ||
@@ -46,6 +247,12 @@ app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Api-Key, X-Secret-Key");
   res.setHeader("Access-Control-Allow-Credentials", "true");
+
+  // Dynamic HTTP Security Headers (OWASP Security Standards)
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
 
   if (req.method === "OPTIONS") {
     return res.status(204).end();
@@ -95,6 +302,7 @@ interface OrderItem {
   paidAt?: string;
   callbackUrl?: string;
   webhookDelivered?: boolean;
+  userId?: string;
 }
 
 interface BankAccountItem {
@@ -118,17 +326,6 @@ interface BankAccountItem {
   createdAt: string;
 }
 
-interface SecurityEventItem {
-  id: string;
-  type: "UTR_DUPLICATE_ATTEMPT" | "RATE_LIMIT_EXCEEDED" | "SIGNATURE_MISMATCH" | "INVALID_UTR_FORMAT" | "IP_ANOMALY";
-  severity: "high" | "medium" | "critical" | "info";
-  timestamp: string;
-  ipAddress: string;
-  details: string;
-  orderNumber?: string;
-  utr?: string;
-  status: "BLOCKED" | "FLAGGED" | "RESOLVED";
-}
 
 let merchantProfile = {
   businessName: "9tepay Merchant Services",
@@ -282,13 +479,26 @@ function verifyPassword(password: string, storedHash: string): boolean {
 }
 
 function getAuthenticatedUser(req: any): SessionUser | null {
+  let token = "";
   const authHeader = req.headers.authorization;
-  if (!authHeader) return null;
-  const parts = authHeader.split(" ");
-  if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") return null;
-  const token = parts[1];
+  if (authHeader) {
+    const parts = authHeader.split(" ");
+    if (parts.length === 2 && parts[0].toLowerCase() === "bearer") {
+      token = parts[1];
+    }
+  }
 
-  if (token === "payindia_session_admin_live") {
+  const apiKey = token || 
+    req.headers["x-api-key"] || 
+    req.headers["x-merchant-key"] || 
+    req.query?.api_key || 
+    req.query?.apiKey || 
+    req.body?.api_key || 
+    req.body?.apiKey;
+
+  if (!apiKey) return null;
+
+  if (apiKey === "payindia_session_admin_live") {
     return {
       id: "usr_admin_001",
       name: "Master Administrator",
@@ -302,8 +512,8 @@ function getAuthenticatedUser(req: any): SessionUser | null {
     };
   }
 
-  if (token.startsWith("payindia_session_")) {
-    const userId = token.replace("payindia_session_", "");
+  if (apiKey.startsWith("payindia_session_")) {
+    const userId = apiKey.replace("payindia_session_", "");
     const found = merchantsList.find((m) => m.id === userId);
     if (found) {
       return {
@@ -316,6 +526,24 @@ function getAuthenticatedUser(req: any): SessionUser | null {
         vpa: found.vpa,
         status: found.status as any,
         createdAt: found.createdAt,
+      };
+    }
+  }
+
+  // Allow server-to-server API Key lookup
+  for (const merch of merchantsList) {
+    const prof = getProfileForUser(merch.id);
+    if (prof.apiKey === apiKey) {
+      return {
+        id: merch.id,
+        name: merch.ownerName,
+        email: merch.email,
+        phone: merch.phone,
+        role: "merchant",
+        businessName: merch.businessName,
+        vpa: merch.vpa,
+        status: merch.status as any,
+        createdAt: merch.createdAt,
       };
     }
   }
@@ -404,14 +632,18 @@ app.get(["/api/auth/me", "/auth/me"], (req, res) => {
   res.json({ success: true, user, session: "payindia_session_active" });
 });
 
-app.post(["/api/auth/login", "/auth/login.php", "/api/login", "/auth/login"], (req, res) => {
+app.post(["/api/auth/login", "/auth/login.php", "/api/login", "/auth/login"], authRateLimiter, (req, res) => {
   const { emailOrPhone, password, role } = req.body;
   const targetEmail = (emailOrPhone || "").trim().toLowerCase();
   
   if (role === "admin" || targetEmail === "admin@demotry.shop" || targetEmail === "admin@9tepay.com") {
     if (password !== expectedAdminPasscode) {
+      trackFailedAttempt(targetEmail || "admin@9tepay.com");
       return res.status(401).json({ success: false, error: "Invalid superadmin passcode credentials." });
     }
+    // Clear login attempts upon success
+    failedLoginAttempts.delete(targetEmail || "admin@9tepay.com");
+
     const adminUser: SessionUser = {
       id: "usr_admin_001",
       name: "Master Administrator",
@@ -433,13 +665,31 @@ app.post(["/api/auth/login", "/auth/login.php", "/api/login", "/auth/login"], (r
   );
 
   if (!found) {
+    trackFailedAttempt(targetEmail);
     return res.status(401).json({ success: false, error: "Authentication failed. Merchant account not found. Please register first." });
   }
 
   const storedHash = userPasswordsMap.get(found.id);
   if (storedHash && !verifyPassword(password || "", storedHash)) {
+    trackFailedAttempt(targetEmail);
+
+    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1";
+    const secEvt: SecurityEventItem = {
+      id: `sec_evt_bf_${Date.now().toString().slice(-6)}`,
+      type: "IP_ANOMALY",
+      severity: "high",
+      timestamp: new Date().toISOString(),
+      ipAddress: String(ip).split(",")[0].trim(),
+      details: `Failed password login attempt for merchant account: ${targetEmail}`,
+      status: "BLOCKED",
+    };
+    getSecurityLogsForUser(found.id).unshift(secEvt);
+
     return res.status(401).json({ success: false, error: "Invalid password credentials." });
   }
+
+  // Clear login attempts upon success
+  failedLoginAttempts.delete(targetEmail);
 
   const sessionUser: SessionUser = {
     id: found.id,
@@ -466,7 +716,7 @@ app.post(["/api/auth/login", "/auth/login.php", "/api/login", "/auth/login"], (r
   });
 });
 
-app.post(["/api/auth/register", "/auth/register.php", "/api/register", "/auth/register"], (req, res) => {
+app.post(["/api/auth/register", "/auth/register.php", "/api/register", "/auth/register"], authRateLimiter, (req, res) => {
   try {
     const { businessName, ownerName, email, phone, vpa, bankAccount, ifsc, password } = req.body || {};
 
@@ -843,15 +1093,6 @@ app.put(["/api/merchant/routing-rules", "/api/merchant/routing"], requireAuth, (
   });
 });
 
-// --- Security Audit & Anti-Fraud Logs ---
-const userSecurityLogsMap = new Map<string, SecurityEventItem[]>();
-
-function getSecurityLogsForUser(userId: string): SecurityEventItem[] {
-  if (!userSecurityLogsMap.has(userId)) {
-    userSecurityLogsMap.set(userId, []);
-  }
-  return userSecurityLogsMap.get(userId)!;
-}
 
 app.get(["/api/security/events", "/api/security/logs"], requireAuth, (req, res) => {
   res.json(getSecurityLogsForUser(req.user.id));
@@ -988,6 +1229,7 @@ app.post("/api/orders", requireAuth, (req, res) => {
     expiresAt: new Date(Date.now() + 1000 * 60 * 15).toISOString(), // 15 min expiry
     callbackUrl: callbackUrl || "https://shop.example.com/order/success",
     webhookDelivered: false,
+    userId: userId,
   };
 
   orders.unshift(newOrder);
@@ -1062,6 +1304,11 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
         (bodyOrderNumber && (o.id === bodyOrderNumber || o.orderNumber === bodyOrderNumber || safeLower(o.id) === safeLower(bodyOrderNumber) || safeLower(o.orderNumber) === safeLower(bodyOrderNumber)))
     );
 
+    // Get order's tenant merchant id
+    const orderUserId = order?.userId || "merch_live_01";
+    const userProf = getProfileForUser(orderUserId);
+    const userBanks = getBankAccountsForUser(orderUserId);
+
     // Dynamically recover/create order if missing from memory due to serverless cold start
     if (!order) {
       const fallbackId = paramId || bodyOrderId || "ord_checkout";
@@ -1072,12 +1319,13 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
         amount: Number(req.body?.amount) || 1.0,
         currency: "INR",
         customerName: req.body?.customerName || "Customer",
-        merchantVpa: merchantProfile.vpa || "9tepay.business@icici",
-        merchantName: merchantProfile.businessName || "9tepay Merchant Services",
+        merchantVpa: userProf.vpa || "9tepay.business@icici",
+        merchantName: userProf.businessName || "9tepay Merchant Services",
         status: "PENDING",
-        upiString: buildUpiUri(merchantProfile.vpa || "9tepay.business@icici", merchantProfile.businessName, 1.0, fallbackOrderNumber, "Order Payment"),
+        upiString: buildUpiUri(userProf.vpa || "9tepay.business@icici", userProf.businessName, 1.0, fallbackOrderNumber, "Order Payment"),
         createdAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 1000 * 60 * 15).toISOString(),
+        userId: orderUserId,
       };
       orders.unshift(order);
     }
@@ -1096,7 +1344,7 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
 
     // If simulate flag or empty utr provided, auto-generate fresh unique 12-digit UTR
     let finalUtr = rawUtr;
-    if (!finalUtr && merchantProfile.autoApproveUtr) {
+    if (!finalUtr && userProf.autoApproveUtr) {
       finalUtr = `4${Math.floor(10000000000 + Math.random() * 90000000000)}`;
     }
 
@@ -1105,7 +1353,7 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
     }
 
     // Security Check 1: Strict 12-digit format check (only if format flag active AND user input is not empty)
-    if (merchantProfile.requireStrictUtrFormat && rawUtr) {
+    if (userProf.requireStrictUtrFormat && rawUtr) {
       const isStrict12 = /^\d{12}$/.test(finalUtr);
       if (!isStrict12) {
         const secEvt: SecurityEventItem = {
@@ -1119,7 +1367,7 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
           utr: finalUtr,
           status: "BLOCKED",
         };
-        securityLogs.unshift(secEvt);
+        getSecurityLogsForUser(orderUserId).unshift(secEvt);
 
         return res.status(400).json({
           success: false,
@@ -1130,7 +1378,7 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
     }
 
     // Security Check 2: Anti-Fraud Duplicate UTR Prevention
-    if (merchantProfile.preventDuplicateUtr && rawUtr) {
+    if (userProf.preventDuplicateUtr && rawUtr) {
       const duplicateOrder = orders.find(
         (o) => o.status === "PAID" && o.utrNumber === finalUtr && o.id !== order?.id
       );
@@ -1147,7 +1395,7 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
           utr: finalUtr,
           status: "BLOCKED",
         };
-        securityLogs.unshift(secEvt);
+        getSecurityLogsForUser(orderUserId).unshift(secEvt);
 
         return res.status(409).json({
           success: false,
@@ -1161,7 +1409,7 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
     orders.forEach((o) => {
       if (o.id === order.id || o.orderNumber === order.orderNumber || (order.id && o.id === order.id)) {
         o.utrNumber = finalUtr;
-        if (!merchantProfile.autoApproveUtr && !simulate) {
+        if (!userProf.autoApproveUtr && !simulate) {
           o.status = "PENDING";
           (o as any).reviewRequired = true;
         } else {
@@ -1174,7 +1422,7 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
     });
 
     // If auto approve is disabled by merchant, set order to reviewRequired pending merchant approval
-    if (!merchantProfile.autoApproveUtr && !simulate) {
+    if (!userProf.autoApproveUtr && !simulate) {
       return res.json({
         success: true,
         message: "UTR submitted successfully. Awaiting merchant approval.",
@@ -1191,10 +1439,11 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
     (order as any).reviewRequired = false;
 
     // Update routed bank's daily volume and total settled stats safely
-    const targetBank = bankAccounts.find((b) => b.id === order?.bankAccountId || safeLower(b.vpa) === safeLower(order?.merchantVpa));
+    const targetBank = userBanks.find((b) => b.id === order?.bankAccountId || safeLower(b.vpa) === safeLower(order?.merchantVpa));
     if (targetBank) {
       targetBank.dailyVolume = Number(targetBank.dailyVolume || 0) + Number(order.amount || 0);
       targetBank.totalSettled = Number(targetBank.totalSettled || 0) + Number(order.amount || 0);
+      userBankAccountsMap.set(orderUserId, userBanks); // persist updated banks
     }
 
     // Add webhook log entry
@@ -1204,7 +1453,7 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
         orderId: order.id,
         timestamp: new Date().toISOString(),
         status: "DELIVERED",
-        url: merchantProfile.webhookUrl || "https://shop.example.com/api/webhook/upi-callback",
+        url: userProf.webhookUrl || "https://shop.example.com/api/webhook/upi-callback",
         statusCode: 200,
         payload: {
           event: "payment.success",
@@ -1220,7 +1469,7 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
         },
         response: '{"status":"OK","received":true,"signature_valid":true}',
       };
-      webhookLogs.unshift(newLog);
+      getWebhookLogsForUser(orderUserId).unshift(newLog);
     } catch (e) {
       console.error("Error creating webhook log:", e);
     }
@@ -1262,13 +1511,17 @@ app.post("/api/orders/verify", handleVerifyOrderRequest);
 app.post("/api/checkout/verify-utr", handleVerifyOrderRequest);
 
 // Approve Order / UTR (Merchant Action)
-app.post("/api/orders/:id/approve", (req, res) => {
+app.post("/api/orders/:id/approve", requireAuth, (req, res) => {
   try {
     const { id } = req.params;
     let order = orders.find((o) => o.id === id || o.orderNumber === id);
     if (!order) {
       return res.status(404).json({ error: "Order not found" });
     }
+
+    const orderUserId = order.userId || req.user.id || "merch_live_01";
+    const userProf = getProfileForUser(orderUserId);
+    const userBanks = getBankAccountsForUser(orderUserId);
 
     const finalUtr = order.utrNumber || req.body?.utr || `4${Math.floor(10000000000 + Math.random() * 90000000000)}`;
     order.status = "PAID";
@@ -1278,10 +1531,11 @@ app.post("/api/orders/:id/approve", (req, res) => {
     (order as any).reviewRequired = false;
 
     // Update bank account stats
-    const targetBank = bankAccounts.find((b) => b.id === order?.bankAccountId || b.vpa === order?.merchantVpa);
+    const targetBank = userBanks.find((b) => b.id === order?.bankAccountId || b.vpa === order?.merchantVpa);
     if (targetBank) {
-      targetBank.dailyVolume += order.amount;
-      targetBank.totalSettled += order.amount;
+      targetBank.dailyVolume = Number(targetBank.dailyVolume || 0) + Number(order.amount || 0);
+      targetBank.totalSettled = Number(targetBank.totalSettled || 0) + Number(order.amount || 0);
+      userBankAccountsMap.set(orderUserId, userBanks);
     }
 
     // Webhook log
@@ -1290,7 +1544,7 @@ app.post("/api/orders/:id/approve", (req, res) => {
       orderId: order.id,
       timestamp: new Date().toISOString(),
       status: "DELIVERED",
-      url: merchantProfile.webhookUrl,
+      url: userProf.webhookUrl || "https://shop.example.com/api/webhook/upi-callback",
       statusCode: 200,
       payload: {
         event: "payment.success",
@@ -1305,7 +1559,7 @@ app.post("/api/orders/:id/approve", (req, res) => {
       },
       response: '{"status":"OK","received":true}',
     };
-    webhookLogs.unshift(newLog);
+    getWebhookLogsForUser(orderUserId).unshift(newLog);
 
     return res.json({
       success: true,
@@ -1318,13 +1572,15 @@ app.post("/api/orders/:id/approve", (req, res) => {
 });
 
 // Reject / Fail Order (Merchant Action)
-app.post("/api/orders/:id/reject", (req, res) => {
+app.post("/api/orders/:id/reject", requireAuth, (req, res) => {
   try {
     const { id } = req.params;
     let order = orders.find((o) => o.id === id || o.orderNumber === id);
     if (!order) {
       return res.status(404).json({ error: "Order not found" });
     }
+
+    const orderUserId = order.userId || req.user.id || "merch_live_01";
 
     order.status = "FAILED";
     (order as any).reviewRequired = false;
@@ -1340,7 +1596,7 @@ app.post("/api/orders/:id/reject", (req, res) => {
       utr: order.utrNumber,
       status: "BLOCKED",
     };
-    securityLogs.unshift(secEvt);
+    getSecurityLogsForUser(orderUserId).unshift(secEvt);
 
     return res.json({
       success: true,
@@ -1353,14 +1609,15 @@ app.post("/api/orders/:id/reject", (req, res) => {
 });
 
 // Get Webhook Logs
-app.get("/api/webhooks/logs", (_req, res) => {
-  res.json(webhookLogs);
+app.get("/api/webhooks/logs", requireAuth, (req, res) => {
+  res.json(getWebhookLogsForUser(req.user.id));
 });
 
 // Test Webhook Dispatch
-app.post("/api/webhooks/test-dispatch", (req, res) => {
+app.post("/api/webhooks/test-dispatch", requireAuth, (req, res) => {
   const { webhookUrl, event } = req.body;
-  const targetUrl = webhookUrl || merchantProfile.webhookUrl;
+  const userProf = getProfileForUser(req.user.id);
+  const targetUrl = webhookUrl || userProf.webhookUrl || "https://shop.example.com/api/webhook/upi-callback";
 
   const mockPayload = {
     event: event || "payment.success",
@@ -1384,7 +1641,7 @@ app.post("/api/webhooks/test-dispatch", (req, res) => {
     response: '{"status":"OK","signature_verified":true}',
   };
 
-  webhookLogs.unshift(newLog);
+  getWebhookLogsForUser(req.user.id).unshift(newLog);
   res.json({ success: true, log: newLog });
 });
 
