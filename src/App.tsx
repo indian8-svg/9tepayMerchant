@@ -1,22 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
-  ShieldCheck,
   Smartphone,
   LayoutDashboard,
   Code2,
-  Search,
-  CheckCircle2,
-  AlertTriangle,
-  QrCode,
-  Sparkles,
   Lock,
-  Layers,
+  LogOut,
   Shield,
   UserCheck,
   Building,
-  RefreshCw,
-  Sliders,
-  Radio,
+  QrCode,
   Link2,
 } from 'lucide-react';
 import { Order, MerchantProfile, WebhookLog, User, BankAccountQR, BankRoutingStrategy, SecurityEvent } from './types';
@@ -27,16 +19,10 @@ import { HostedCheckout } from './components/HostedCheckout';
 import { DeveloperApiDocs } from './components/DeveloperApiDocs';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AuthPortal } from './components/AuthPortal';
-import { SecurityAuditPanel } from './components/SecurityAuditPanel';
-import { OverviewCard } from './components/OverviewCard';
-import { RedFlagsPanel } from './components/RedFlagsPanel';
-import { TechnicalStackPanel } from './components/TechnicalStackPanel';
-import { EndpointsMapPanel } from './components/EndpointsMapPanel';
-import { demotryAnalysisData } from './data/demotryAnalysis';
 
 export function App() {
   const [activeView, setActiveView] = useState<
-    'dashboard' | 'payment_links' | 'checkout' | 'admin' | 'auth' | 'docs' | 'audit'
+    'dashboard' | 'payment_links' | 'checkout' | 'admin' | 'auth' | 'docs'
   >('dashboard');
 
   const [currentUser, setCurrentUser] = useState<User | null>({
@@ -400,7 +386,11 @@ export function App() {
   };
 
   const handleLogout = async () => {
-    await safeFetch('/api/auth/logout', { method: 'POST' });
+    try {
+      await safeFetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // ignore
+    }
     setCurrentUser(null);
     setActiveView('auth');
   };
@@ -429,98 +419,98 @@ export function App() {
             </div>
           </div>
 
-          {/* Navigation Bar */}
-          <nav className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-xs overflow-x-auto max-w-full">
-            {/* Merchant Dashboard */}
-            <button
-              onClick={() => setActiveView('dashboard')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeView === 'dashboard'
-                  ? 'bg-emerald-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Merchant Dashboard (/merchant/dashboard.php)"
-            >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Merchant</span>
-              <span className="sm:hidden">Merchant</span>
-            </button>
+          {/* Navigation Bar & User Controls */}
+          <div className="flex items-center gap-2">
+            <nav className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-xs overflow-x-auto max-w-full">
+              {/* Merchant Dashboard */}
+              <button
+                onClick={() => setActiveView('dashboard')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeView === 'dashboard'
+                    ? 'bg-emerald-600 text-white shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Merchant Dashboard"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Merchant</span>
+                <span className="sm:hidden">Merchant</span>
+              </button>
 
-            {/* Payment Links Manager */}
-            <button
-              onClick={() => setActiveView('payment_links')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeView === 'payment_links'
-                  ? 'bg-emerald-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Payment Links & Instant UPI URLs"
-            >
-              <Link2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Payment Links</span>
-              <span className="sm:hidden">Links</span>
-            </button>
+              {/* Payment Links Manager */}
+              <button
+                onClick={() => setActiveView('payment_links')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeView === 'payment_links'
+                    ? 'bg-emerald-600 text-white shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Payment Links & Instant UPI URLs"
+              >
+                <Link2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Payment Links</span>
+                <span className="sm:hidden">Links</span>
+              </button>
 
-            {/* Superadmin Panel */}
-            <button
-              onClick={() => setActiveView('admin')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeView === 'admin'
-                  ? 'bg-amber-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Superadmin Panel (/admin/dashboard.php)"
-            >
-              <Shield className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Admin</span>
-              <span className="sm:hidden">Admin</span>
-            </button>
+              {/* Superadmin Panel - ONLY SHOWN IF USER IS ADMIN */}
+              {currentUser?.role === 'admin' && (
+                <button
+                  onClick={() => setActiveView('admin')}
+                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                    activeView === 'admin'
+                      ? 'bg-amber-600 text-white shadow'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Superadmin Panel"
+                >
+                  <Shield className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Admin</span>
+                  <span className="sm:hidden">Admin</span>
+                </button>
+              )}
 
-            {/* Auth Portal */}
-            <button
-              onClick={() => setActiveView('auth')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeView === 'auth'
-                  ? 'bg-emerald-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Auth Gate & Onboarding (/auth/login.php)"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Auth/Onboard</span>
-              <span className="sm:hidden">Auth</span>
-            </button>
+              {/* Login / Auth Portal */}
+              <button
+                onClick={() => setActiveView('auth')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeView === 'auth'
+                    ? 'bg-emerald-600 text-white shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Login & Account Access"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Login</span>
+              </button>
 
-            {/* Developer API */}
-            <button
-              onClick={() => setActiveView('docs')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeView === 'docs'
-                  ? 'bg-emerald-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Developer API & Sandbox (/docs)"
-            >
-              <Code2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">API</span>
-              <span className="sm:hidden">API</span>
-            </button>
+              {/* Developer API */}
+              <button
+                onClick={() => setActiveView('docs')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeView === 'docs'
+                    ? 'bg-emerald-600 text-white shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Developer API & Sandbox (/docs)"
+              >
+                <Code2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">API</span>
+                <span className="sm:hidden">API</span>
+              </button>
+            </nav>
 
-            {/* Security Audit */}
-            <button
-              onClick={() => setActiveView('audit')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeView === 'audit'
-                  ? 'bg-emerald-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="demotry.shop Threat Audit & Intel"
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Audit</span>
-              <span className="sm:hidden">Audit</span>
-            </button>
-          </nav>
+            {/* Quick Sign Out button if logged in */}
+            {currentUser && (
+              <button
+                onClick={handleLogout}
+                className="px-2.5 py-1.5 bg-slate-900 hover:bg-rose-950/40 text-slate-400 hover:text-rose-300 border border-slate-800 hover:border-rose-500/30 rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center gap-1.5 shrink-0"
+                title="Sign out of current session"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Sign Out</span>
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -573,15 +563,15 @@ export function App() {
           />
         )}
 
-        {/* VIEW 3: Superadmin Control Panel */}
-        {activeView === 'admin' && (
+        {/* VIEW 4: Superadmin Control Panel (Accessible only when logged in as Admin) */}
+        {activeView === 'admin' && currentUser?.role === 'admin' && (
           <AdminDashboard
             orders={orders}
             onRefreshOrders={refreshAll}
           />
         )}
 
-        {/* VIEW 4: Auth & Onboarding Portal */}
+        {/* VIEW 5: Login & Onboarding Portal */}
         {activeView === 'auth' && (
           <AuthPortal
             currentUser={currentUser}
@@ -590,49 +580,9 @@ export function App() {
           />
         )}
 
-        {/* VIEW 5: Developer API Docs */}
+        {/* VIEW 6: Developer API Docs */}
         {activeView === 'docs' && (
           <DeveloperApiDocs profile={profile} />
-        )}
-
-        {/* VIEW 6: Security Audit of demotry.shop */}
-        {activeView === 'audit' && (
-          <div className="space-y-6">
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-bold text-white flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-amber-400" />
-                    <span>Security Audit &amp; Technical Intelligence</span>
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-1 font-mono">
-                    Target Analyzed: https://demotry.shop/merchant/dashboard.php
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                    Risk Level: High Risk (78/100)
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <OverviewCard data={demotryAnalysisData} />
-            <RedFlagsPanel redFlags={demotryAnalysisData.redFlags} />
-            <SecurityAuditPanel
-              securityChecks={demotryAnalysisData.securityChecks || []}
-              headers={demotryAnalysisData.headers}
-              cookieAnalysis={demotryAnalysisData.cookieAnalysis}
-            />
-            <TechnicalStackPanel
-              techStack={demotryAnalysisData.techStack}
-              hosting={demotryAnalysisData.hosting}
-            />
-            <EndpointsMapPanel
-              endpoints={demotryAnalysisData.endpoints}
-              domain={demotryAnalysisData.domain}
-            />
-          </div>
         )}
       </main>
 

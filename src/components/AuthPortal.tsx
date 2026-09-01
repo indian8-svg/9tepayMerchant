@@ -151,41 +151,41 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Target Origin Notice matching demotry.shop /auth/login.php */}
+      {/* Top Banner */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
-                demotry.shop/auth/login.php
+              <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
+                9tepay Account Access
               </span>
               <span className="text-xs text-slate-400 font-mono">
-                Cookie: <code className="text-emerald-400">payindia_session</code>
+                Direct UPI Merchant &amp; Administrator Gateway
               </span>
             </div>
             <h2 className="text-lg font-bold text-white mt-1.5 flex items-center gap-2">
               <Lock className="w-5 h-5 text-emerald-400" />
-              <span>Gateway Authentication & Onboarding Portal</span>
+              <span>Merchant &amp; Admin Sign In</span>
             </h2>
             <p className="text-xs text-slate-400 mt-1 max-w-2xl">
-              Replicates the PHP 8.3 / Hostinger session gate from demotry.shop. Allows merchant login, direct UPI self-onboarding, and superadmin governance.
+              Log in to manage your settlement bank accounts, generate instant UPI QR payment links, and monitor live payment webhooks.
             </p>
           </div>
 
           {currentUser && (
-            <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-3 text-right shrink-0">
+            <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-3.5 text-right shrink-0">
               <div className="text-xs font-semibold text-white flex items-center justify-end gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 <span>{currentUser.name}</span>
               </div>
               <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                Role: <span className="text-emerald-400 uppercase font-bold">{currentUser.role}</span>
+                Logged in as: <span className="text-emerald-400 uppercase font-bold">{currentUser.role}</span>
               </div>
               <button
                 onClick={onLogout}
-                className="mt-2 text-xs text-rose-400 hover:text-rose-300 underline font-medium cursor-pointer"
+                className="mt-2.5 px-3 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold cursor-pointer transition-all inline-flex items-center gap-1"
               >
-                Sign Out / Switch Session
+                <span>Sign Out</span>
               </button>
             </div>
           )}
@@ -219,7 +219,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
               }`}
             >
               <Building className="w-4 h-4" />
-              <span>Register Merchant</span>
+              <span>Register</span>
             </button>
 
             <button
@@ -229,10 +229,10 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                   ? 'bg-amber-600 text-white shadow-lg shadow-amber-950/50'
                   : 'bg-slate-800 text-slate-400 hover:text-slate-200'
               }`}
-              title="Superadmin Portal (/admin/login.php)"
+              title="Administrator Login"
             >
               <Shield className="w-4 h-4" />
-              <span>Admin</span>
+              <span>Admin Login</span>
             </button>
           </div>
 
