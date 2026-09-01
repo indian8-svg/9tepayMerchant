@@ -24,6 +24,7 @@ import {
   Zap,
   Share2,
   Loader2,
+  Info,
 } from 'lucide-react';
 import { Order, BankAccountQR, User } from '../types';
 import { generateAppDeeplinks, formatCurrency } from '../utils/upi';
@@ -49,6 +50,9 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
 }) => {
   const [order, setOrder] = useState<Order>(initialOrder);
   const [copiedVpa, setCopiedVpa] = useState(false);
+  const [copiedAmount, setCopiedAmount] = useState(false);
+  const [activeIntentNotice, setActiveIntentNotice] = useState<{ app: string; message?: string } | null>(null);
+  const [showIntentTroubleshooter, setShowIntentTroubleshooter] = useState(false);
   const [copiedUpiString, setCopiedUpiString] = useState(false);
   const [utrInput, setUtrInput] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
@@ -104,6 +108,14 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
     return () => clearInterval(pollInterval);
   }, [order.id, order.status, submittedUtr, onPaymentSuccess]);
 
+  const handleCopyAmount = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(order.amount.toFixed(2)).catch(() => {});
+    }
+    setCopiedAmount(true);
+    setTimeout(() => setCopiedAmount(false), 2000);
+  };
+
   const handleAppIntentClick = (appName: string, targetUrl: string, e: React.MouseEvent) => {
     // 1. Copy VPA to clipboard automatically so user can paste if app requires manual entry
     try {
@@ -113,6 +125,12 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
       setCopiedVpa(true);
       setTimeout(() => setCopiedVpa(false), 3000);
     } catch {}
+
+    // Show helpful active toast
+    setActiveIntentNotice({
+      app: appName,
+      message: `UPI ID copied! If ${appName} displays "Unverified merchant", select "Pay to UPI ID" in ${appName} or scan the QR code.`,
+    });
 
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     
@@ -765,9 +783,9 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-1">
                 {/* Google Pay */}
                 <a
-                  href={deeplinks.gpayIntent}
-                  onClick={(e) => handleAppIntentClick('Google Pay', deeplinks.gpayIntent, e)}
-                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 p-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-slate-800 transition-all cursor-pointer group shadow-2xs"
+                  href={deeplinks.gpay}
+                  onClick={(e) => handleAppIntentClick('Google Pay', deeplinks.gpay, e)}
+                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 p-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-slate-800 transition-all cursor-pointer group shadow-2xs active:scale-95"
                 >
                   <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-black text-[10px]">
                     G
@@ -777,9 +795,9 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
 
                 {/* PhonePe */}
                 <a
-                  href={deeplinks.phonepeIntent}
-                  onClick={(e) => handleAppIntentClick('PhonePe', deeplinks.phonepeIntent, e)}
-                  className="bg-slate-50 hover:bg-slate-100 border border-purple-200 p-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-purple-900 transition-all cursor-pointer group shadow-2xs"
+                  href={deeplinks.phonepe}
+                  onClick={(e) => handleAppIntentClick('PhonePe', deeplinks.phonepe, e)}
+                  className="bg-slate-50 hover:bg-slate-100 border border-purple-200 p-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-purple-900 transition-all cursor-pointer group shadow-2xs active:scale-95"
                 >
                   <div className="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-black text-[10px]">
                     Pe
@@ -789,9 +807,9 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
 
                 {/* Paytm */}
                 <a
-                  href={deeplinks.paytmIntent}
-                  onClick={(e) => handleAppIntentClick('Paytm', deeplinks.paytmIntent, e)}
-                  className="bg-slate-50 hover:bg-slate-100 border border-cyan-300 p-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-cyan-900 transition-all cursor-pointer group shadow-2xs"
+                  href={deeplinks.paytm}
+                  onClick={(e) => handleAppIntentClick('Paytm', deeplinks.paytm, e)}
+                  className="bg-slate-50 hover:bg-slate-100 border border-cyan-300 p-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-cyan-900 transition-all cursor-pointer group shadow-2xs active:scale-95"
                 >
                   <div className="w-5 h-5 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center font-black text-[10px]">
                     Py
@@ -801,9 +819,9 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
 
                 {/* BHIM UPI */}
                 <a
-                  href={deeplinks.bhimIntent}
-                  onClick={(e) => handleAppIntentClick('BHIM UPI', deeplinks.bhimIntent, e)}
-                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 p-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-slate-800 transition-all cursor-pointer group shadow-2xs"
+                  href={deeplinks.bhim}
+                  onClick={(e) => handleAppIntentClick('BHIM UPI', deeplinks.bhim, e)}
+                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 p-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-slate-800 transition-all cursor-pointer group shadow-2xs active:scale-95"
                 >
                   <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-[10px]">
                     BH
@@ -813,9 +831,9 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
 
                 {/* CRED */}
                 <a
-                  href={deeplinks.credIntent}
-                  onClick={(e) => handleAppIntentClick('CRED', deeplinks.credIntent, e)}
-                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 p-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-slate-800 transition-all cursor-pointer group shadow-2xs"
+                  href={deeplinks.cred}
+                  onClick={(e) => handleAppIntentClick('CRED', deeplinks.cred, e)}
+                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 p-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-slate-800 transition-all cursor-pointer group shadow-2xs active:scale-95"
                 >
                   <div className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center font-black text-[10px]">
                     CR
@@ -827,7 +845,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                 <a
                   href={deeplinks.whatsapp}
                   onClick={(e) => handleAppIntentClick('WhatsApp Pay', deeplinks.whatsapp, e)}
-                  className="bg-slate-50 hover:bg-slate-100 border border-emerald-200 p-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-emerald-800 transition-all cursor-pointer group shadow-2xs"
+                  className="bg-slate-50 hover:bg-slate-100 border border-emerald-200 p-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-emerald-800 transition-all cursor-pointer group shadow-2xs active:scale-95"
                 >
                   <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center font-black text-[10px]">
                     WA
@@ -836,39 +854,151 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                 </a>
               </div>
 
-              {/* Direct VPA Fallback Card if Paytm / PhonePe blocks intent */}
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 space-y-2 mt-3">
-                <div className="flex items-start gap-2 text-amber-900 font-semibold text-xs">
-                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <div>
-                    <span>Paytm / PhonePe Intent Solution</span>
-                    <p className="text-[11px] text-amber-800 font-normal mt-0.5 leading-relaxed">
-                      If Paytm says <em>"Unverified merchant can't accept intent payments"</em>, copy the VPA below and send money directly via <strong>"Pay to UPI ID"</strong> in your bank app:
-                    </p>
+              {/* Active Intent Live Notice / Floating Banner */}
+              {activeIntentNotice && (
+                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3.5 space-y-2 animate-fade-in text-xs text-blue-900">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2 font-bold">
+                      <Smartphone className="w-4 h-4 text-blue-600 shrink-0" />
+                      <span>Opening {activeIntentNotice.app}...</span>
+                    </div>
+                    <button
+                      onClick={() => setActiveIntentNotice(null)}
+                      className="text-blue-500 hover:text-blue-800 p-0.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-blue-800 leading-relaxed">
+                    {activeIntentNotice.message}
+                  </p>
+                </div>
+              )}
+
+              {/* Comprehensive Resolution Panel for "Unverified Merchant" Intent Blocks */}
+              <div className="bg-amber-50/90 border border-amber-300/80 rounded-2xl p-4 space-y-3 mt-3 shadow-2xs">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-2.5 text-amber-950">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <h5 className="font-bold text-xs">
+                        GPay / Paytm "Unverified Merchant" Solution
+                      </h5>
+                      <p className="text-[11px] text-amber-900 mt-0.5 leading-relaxed">
+                        If Paytm or Google Pay says <em>"Don't worry, money has not been deducted. This unverified merchant can't accept intent payments"</em>, use one of these 100% working methods:
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between bg-white border border-amber-200 rounded-xl px-3 py-2">
-                  <div className="font-mono text-xs text-amber-900 font-bold truncate">
-                    {order.merchantVpa}
+                {/* 1-Click Action Hub */}
+                <div className="space-y-2 pt-1">
+                  {/* Method 1: Copy UPI ID & Launch Direct Transfer */}
+                  <div className="bg-white border border-amber-200 rounded-xl p-3 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                        <span className="w-4 h-4 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black flex items-center justify-center">1</span>
+                        Pay via UPI ID (100% Success):
+                      </span>
+                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                        Zero Intent Blocks
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+                        <span className="text-[10px] text-slate-500 font-medium">UPI ID:</span>
+                        <div className="font-mono text-xs text-slate-900 font-bold truncate max-w-[150px]">
+                          {order.merchantVpa}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleCopyVpa}
+                          className="bg-slate-800 hover:bg-slate-900 text-white text-[10px] font-semibold px-2 py-1 rounded transition-colors cursor-pointer ml-1"
+                        >
+                          {copiedVpa ? 'Copied' : 'Copy'}
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+                        <span className="text-[10px] text-slate-500 font-medium">Amount:</span>
+                        <div className="font-mono text-xs text-slate-900 font-bold">
+                          ₹{order.amount.toFixed(2)}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleCopyAmount}
+                          className="bg-slate-800 hover:bg-slate-900 text-white text-[10px] font-semibold px-2 py-1 rounded transition-colors cursor-pointer ml-1"
+                        >
+                          {copiedAmount ? 'Copied' : 'Copy'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-slate-600">
+                      👉 In Paytm / GPay / PhonePe: Tap <strong>"Pay to UPI ID"</strong> → Paste <strong>{order.merchantVpa}</strong> → Enter <strong>₹{order.amount.toFixed(2)}</strong> → Pay!
+                    </p>
                   </div>
-                  <button
-                    onClick={handleCopyVpa}
-                    className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] px-3 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer shrink-0 ml-2 shadow-2xs"
-                  >
-                    {copiedVpa ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Copied VPA</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Copy VPA</span>
-                      </>
-                    )}
-                  </button>
+
+                  {/* Method 2: Scan QR Code image */}
+                  <div className="bg-white border border-amber-200 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                    <div className="space-y-0.5 text-left w-full">
+                      <div className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                        <span className="w-4 h-4 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black flex items-center justify-center">2</span>
+                        Scan QR from Gallery:
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-snug">
+                        QR scanning is authorized by NPCI and bypasses all mobile intent firewalls.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={handleDownloadQr}
+                        className="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all cursor-pointer shadow-2xs"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Save QR</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowQrShareModal('Google Pay / Paytm')}
+                        className="flex-1 sm:flex-initial bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] px-3 py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all border border-slate-200 cursor-pointer"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                        <span>Guide</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Educational info toggle */}
+                <button
+                  type="button"
+                  onClick={() => setShowIntentTroubleshooter(!showIntentTroubleshooter)}
+                  className="text-[11px] text-amber-900 hover:text-amber-950 font-semibold flex items-center gap-1 pt-0.5 cursor-pointer underline underline-offset-2"
+                >
+                  <Info className="w-3.5 h-3.5 text-amber-700" />
+                  <span>{showIntentTroubleshooter ? 'Hide details' : 'Why does GPay / Paytm show "unverified merchant"?'}</span>
+                </button>
+
+                {showIntentTroubleshooter && (
+                  <div className="bg-amber-100/70 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-950 space-y-1.5 leading-relaxed animate-fade-in">
+                    <p className="font-bold text-slate-900">
+                      Why does Google Pay or Paytm show this warning?
+                    </p>
+                    <p>
+                      NPCI and UPI apps (Google Pay & Paytm) restrict <strong>web deep-link intents</strong> for personal savings account UPI IDs unless they are registered enterprise merchant aggregators with signed APK certificates.
+                    </p>
+                    <p>
+                      <strong>How to solve it instantly:</strong>
+                      <br />• <strong>Option 1:</strong> Tap "Pay to UPI ID" inside GPay/Paytm and send money directly to the copied UPI ID.
+                      <br />• <strong>Option 2:</strong> Scan the Standee QR image using your app scanner (QR scans are 100% permitted by NPCI).
+                      <br />• <strong>Option 3:</strong> Merchants can upload a verified Business QR Standee in their 9tepay dashboard for seamless customer experience.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

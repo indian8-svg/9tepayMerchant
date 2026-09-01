@@ -422,9 +422,12 @@ function safeLower(str?: string | null): string {
 }
 
 function buildUpiUri(vpa: string, name: string, amount: number, orderNo: string, note: string) {
-  const encName = encodeURIComponent((name || "").trim());
-  const encNote = encodeURIComponent((note?.trim() || `Order ${orderNo}`));
-  return `upi://pay?pa=${(vpa || "").trim()}&pn=${encName}&am=${Number(amount || 0).toFixed(2)}&cu=INR&tn=${encNote}`;
+  const cleanVpa = (vpa || "").trim();
+  const safeName = (name || "Merchant Services").replace(/[^a-zA-Z0-9\s]/g, "").trim();
+  const encName = encodeURIComponent(safeName || "Merchant");
+  const safeNote = (note?.trim() || `Payment for ${orderNo || "Order"}`).replace(/[^a-zA-Z0-9\s]/g, "").trim();
+  const encNote = encodeURIComponent(safeNote || "Payment");
+  return `upi://pay?pa=${cleanVpa}&pn=${encName}&am=${Number(amount || 0).toFixed(2)}&cu=INR&tn=${encNote}`;
 }
 
 const orders: OrderItem[] = [];

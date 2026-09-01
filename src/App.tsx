@@ -641,7 +641,8 @@ export function App() {
       targetQrImage = primary.customQrImage;
     }
 
-    const upiUri = `upi://pay?pa=${targetVpa.trim()}&pn=${encodeURIComponent(profile.businessName || 'Merchant Services')}&am=${numAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(finalNote)}&tr=${encodeURIComponent(finalOrderNumber)}`;
+    const safeName = (profile.businessName || 'Merchant Services').replace(/[^a-zA-Z0-9\s]/g, '').trim();
+    const upiUri = `upi://pay?pa=${targetVpa.trim()}&pn=${encodeURIComponent(safeName || 'Merchant')}&am=${numAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(finalNote.replace(/[^a-zA-Z0-9\s]/g, '').trim() || 'Payment')}`;
 
     const fallbackOrder: Order = {
       id: orderUniqueId,
