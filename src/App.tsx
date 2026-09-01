@@ -475,7 +475,7 @@ export function App() {
                 status: o.status === 'PAID' ? 'PAID' : existing.status === 'PAID' ? 'PAID' : o.status,
                 reviewRequired: o.reviewRequired ?? existing.reviewRequired,
               };
-              if (existingKey) map.set(existingKey, merged);
+              if (existingKey && existingKey !== o.id) map.delete(existingKey);
               map.set(o.id, merged);
             } else {
               map.set(o.id, o);
@@ -577,7 +577,60 @@ export function App() {
     const pollInterval = setInterval(() => {
       refreshAll();
     }, 3000);
-    return () => clearInterval(pollInterval);
+
+    const handleUtrSubmitted = (e: Event) => {
+      const customEvent = e as CustomEvent<Order>;
+      if (customEvent.detail) {
+        const updated = customEvent.detail;
+        setOrders((prev) => {
+          const exists = prev.some((o) => o.id === updated.id || o.orderNumber === updated.orderNumber);
+          if (exists) {
+            return prev.map((o) =>
+              o.id === updated.id || o.orderNumber === updated.orderNumber
+                ? { ...o, ...updated, utrNumber: updated.utrNumber || o.utrNumber }
+                : o
+            );
+          }
+          return [updated, ...prev];
+        });
+      }
+      refreshAll();
+    };
+
+    const handleStorageChange = () => {
+      try {
+        const storedStr = localStorage.getItem('9tepay_orders');
+        if (storedStr) {
+          const stored: Order[] = JSON.parse(storedStr);
+          setOrders((prev) => {
+            const map = new Map<string, Order>();
+            prev.forEach((o) => map.set(o.id, o));
+            stored.forEach((o) => {
+              const existingKey = Array.from(map.keys()).find(
+                (k) => k === o.id || map.get(k)?.orderNumber === o.orderNumber
+              );
+              const existing = existingKey ? map.get(existingKey) : undefined;
+              if (existing) {
+                if (existingKey && existingKey !== o.id) map.delete(existingKey);
+                map.set(o.id, { ...existing, ...o, utrNumber: o.utrNumber || existing.utrNumber });
+              } else {
+                map.set(o.id, o);
+              }
+            });
+            return Array.from(map.values());
+          });
+        }
+      } catch {}
+    };
+
+    window.addEventListener('utr_submitted', handleUtrSubmitted);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener('utr_submitted', handleUtrSubmitted);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -1425,6 +1478,14 @@ export function App() {
                   bankAccounts={bankAccounts}
                   currentUser={currentUser}
                   onPaymentSuccess={handlePaymentSuccess}
+                  onUtrSubmitted={(updatedOrder) => {
+                    setOrders((prev) =>
+                      prev.map((o) =>
+                        o.id === updatedOrder.id || o.orderNumber === updatedOrder.orderNumber ? updatedOrder : o
+                      )
+                    );
+                    setSelectedOrder(updatedOrder);
+                  }}
                   onBackToDashboard={() => handleViewChange(currentUser.role === 'admin' ? 'admin' : 'dashboard')}
                 />
               ) : (

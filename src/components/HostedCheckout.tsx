@@ -34,6 +34,7 @@ interface HostedCheckoutProps {
   order: Order;
   bankAccounts?: BankAccountQR[];
   onPaymentSuccess: (updatedOrder: Order) => void;
+  onUtrSubmitted?: (updatedOrder: Order) => void;
   onBackToDashboard?: () => void;
   currentUser?: User | null;
 }
@@ -42,6 +43,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
   order: initialOrder,
   bankAccounts = [],
   onPaymentSuccess,
+  onUtrSubmitted,
   onBackToDashboard,
   currentUser,
 }) => {
@@ -335,9 +337,29 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
           ...order,
           utrNumber: cleanUtr,
           status: 'PENDING',
+          reviewRequired: true,
         };
         setOrder(updatedOrder);
         setSubmittedUtr(cleanUtr);
+
+        // Sync to localStorage & emit window event so merchant dashboard updates immediately
+        try {
+          const storedStr = localStorage.getItem('9tepay_orders');
+          const storedOrders: Order[] = storedStr ? JSON.parse(storedStr) : [];
+          const idx = storedOrders.findIndex(
+            (o) => o.id === updatedOrder.id || o.orderNumber === updatedOrder.orderNumber
+          );
+          if (idx >= 0) {
+            storedOrders[idx] = { ...storedOrders[idx], ...updatedOrder, utrNumber: cleanUtr };
+          } else {
+            storedOrders.unshift(updatedOrder);
+          }
+          localStorage.setItem('9tepay_orders', JSON.stringify(storedOrders));
+        } catch {}
+
+        window.dispatchEvent(new CustomEvent('utr_submitted', { detail: updatedOrder }));
+        window.dispatchEvent(new Event('storage'));
+        onUtrSubmitted?.(updatedOrder);
 
         if (updatedOrder.status === 'PAID') {
           setIsAwaitingApproval(false);
@@ -362,6 +384,32 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
           // Fallback to awaiting approval
           setSubmittedUtr(cleanUtr);
           setIsAwaitingApproval(true);
+
+          const fallbackUpdatedOrder: Order = {
+            ...order,
+            utrNumber: cleanUtr,
+            status: 'PENDING',
+            reviewRequired: true,
+          };
+          setOrder(fallbackUpdatedOrder);
+
+          try {
+            const storedStr = localStorage.getItem('9tepay_orders');
+            const storedOrders: Order[] = storedStr ? JSON.parse(storedStr) : [];
+            const idx = storedOrders.findIndex(
+              (o) => o.id === fallbackUpdatedOrder.id || o.orderNumber === fallbackUpdatedOrder.orderNumber
+            );
+            if (idx >= 0) {
+              storedOrders[idx] = { ...storedOrders[idx], ...fallbackUpdatedOrder, utrNumber: cleanUtr };
+            } else {
+              storedOrders.unshift(fallbackUpdatedOrder);
+            }
+            localStorage.setItem('9tepay_orders', JSON.stringify(storedOrders));
+          } catch {}
+
+          window.dispatchEvent(new CustomEvent('utr_submitted', { detail: fallbackUpdatedOrder }));
+          window.dispatchEvent(new Event('storage'));
+          onUtrSubmitted?.(fallbackUpdatedOrder);
         }
       }
     } catch (err: any) {

@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Copy,
   Check,
+  X,
   RefreshCw,
   Clock,
   CheckCircle2,
@@ -74,8 +75,8 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
   profile,
   webhookLogs,
   bankAccounts = [],
-  onApproveOrder = async () => {},
-  onRejectOrder = async () => {},
+  onApproveOrder = async (_orderId: string) => {},
+  onRejectOrder = async (_orderId: string) => {},
   onAddBank = async () => {},
   onUpdateBank = async () => {},
   onDeleteBank = async () => {},
@@ -324,6 +325,65 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Pending UTR Review Banner */}
+      {(() => {
+        const pendingReview = orders.filter((o) => o.status === 'PENDING' && o.utrNumber);
+        if (pendingReview.length === 0) return null;
+
+        return (
+          <div className="bg-gradient-to-r from-amber-50 to-amber-100/60 border border-amber-300 rounded-2xl p-4 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
+                <AlertCircle className="w-5 h-5 text-amber-600 animate-pulse" />
+                <span>Action Required: {pendingReview.length} Pending UTR Submission{pendingReview.length > 1 ? 's' : ''}</span>
+              </div>
+              <button
+                onClick={() => setActiveTab('transactions')}
+                className="text-xs font-semibold text-amber-800 hover:text-amber-950 underline cursor-pointer"
+              >
+                View in Transactions &rarr;
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {pendingReview.map((o) => (
+                <div key={o.id} className="bg-white/90 backdrop-blur-xs border border-amber-200 rounded-xl p-3 shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-mono font-bold text-slate-900">{o.orderNumber || o.id}</span>
+                      <span className="font-bold text-emerald-700">{formatCurrency(o.amount)}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-600 mt-1">
+                      Customer: <span className="font-semibold text-slate-900">{o.customerName}</span>
+                    </div>
+                    <div className="text-[11px] font-mono text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md mt-1.5 border border-amber-200/60 inline-block font-semibold">
+                      UTR: {o.utrNumber}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 mt-3 pt-2 border-t border-amber-100">
+                    <button
+                      onClick={() => onApproveOrder?.(o.id)}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-1.5 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1 shadow-2xs"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Approve</span>
+                    </button>
+                    <button
+                      onClick={() => onRejectOrder?.(o.id)}
+                      className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs py-1.5 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1 shadow-2xs"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Reject</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Subnavigation Menu */}
       <div className="flex items-center justify-between border-b border-slate-200 pb-2">

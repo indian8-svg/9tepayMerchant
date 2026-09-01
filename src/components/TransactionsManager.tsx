@@ -35,6 +35,18 @@ export const TransactionsManager: React.FC<TransactionsManagerProps> = ({
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<Order | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
+  // Keep modal order details synchronized when orders prop updates
+  React.useEffect(() => {
+    if (selectedOrderDetails) {
+      const updated = orders.find(
+        (o) => o.id === selectedOrderDetails.id || o.orderNumber === selectedOrderDetails.orderNumber
+      );
+      if (updated) {
+        setSelectedOrderDetails(updated);
+      }
+    }
+  }, [orders]);
+
   // Filter orders
   const filteredOrders = orders.filter((o) => {
     // Status filter
@@ -392,7 +404,35 @@ export const TransactionsManager: React.FC<TransactionsManagerProps> = ({
             </div>
 
             {/* Modal Actions */}
-            <div className="mt-6 flex items-center justify-center gap-2">
+            <div className="mt-6 flex flex-col gap-2">
+              {selectedOrderDetails.status === 'PENDING' && selectedOrderDetails.utrNumber && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={async () => {
+                      await handleApprove(selectedOrderDetails.id);
+                      setSelectedOrderDetails((prev) => prev ? { ...prev, status: 'PAID', reviewRequired: false } : null);
+                    }}
+                    disabled={processingId === selectedOrderDetails.id}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all cursor-pointer shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Approve Payment</span>
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      await handleReject(selectedOrderDetails.id);
+                      setSelectedOrderDetails((prev) => prev ? { ...prev, status: 'FAILED', reviewRequired: false } : null);
+                    }}
+                    disabled={processingId === selectedOrderDetails.id}
+                    className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all cursor-pointer shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Reject UTR</span>
+                  </button>
+                </div>
+              )}
+
               <button
                 onClick={() => setSelectedOrderDetails(null)}
                 className="w-full bg-[#84cc16] hover:bg-[#65a30d] text-white font-bold text-xs py-2.5 rounded-xl transition-all cursor-pointer shadow-sm"
