@@ -17,6 +17,8 @@ import {
   ChevronRight,
   Menu,
   Check,
+  Info,
+  Mail,
 } from 'lucide-react';
 import { Order, MerchantProfile, WebhookLog, User, BankAccountQR, BankRoutingStrategy, SecurityEvent } from './types';
 import { safeFetch, fetchJson, api } from './utils/api';
@@ -29,6 +31,8 @@ import { AuthPortal } from './components/AuthPortal';
 import { Logo } from './components/Logo';
 import { ProfileSection } from './components/ProfileSection';
 import { SettingsSection } from './components/SettingsSection';
+import { AboutPage } from './components/AboutPage';
+import { ContactPage } from './components/ContactPage';
 
 function getOrderIdFromUrl(): string | null {
   try {
@@ -253,7 +257,7 @@ export function App() {
   }, []);
 
   const [activeView, setActiveView] = useState<
-    'dashboard' | 'payment_links' | 'checkout' | 'admin' | 'auth' | 'docs' | 'profile' | 'settings'
+    'dashboard' | 'payment_links' | 'checkout' | 'admin' | 'auth' | 'docs' | 'profile' | 'settings' | 'about' | 'contact'
   >(() => {
     if (initialUrlOrderId) {
       return 'checkout';
@@ -688,7 +692,7 @@ export function App() {
   };
 
   const handleViewChange = (
-    newView: 'dashboard' | 'payment_links' | 'checkout' | 'admin' | 'auth' | 'docs' | 'profile' | 'settings'
+    newView: 'dashboard' | 'payment_links' | 'checkout' | 'admin' | 'auth' | 'docs' | 'profile' | 'settings' | 'about' | 'contact'
   ) => {
     setActiveView(newView);
     if (newView !== 'checkout' && window.history && window.history.pushState) {
@@ -1159,6 +1163,8 @@ export function App() {
                       {effectiveView === 'dashboard' && <><LayoutDashboard className="w-3.5 h-3.5 text-blue-600" /> Merchant</>}
                       {effectiveView === 'payment_links' && <><Link2 className="w-3.5 h-3.5 text-blue-600" /> Payment Links</>}
                       {effectiveView === 'docs' && <><Code2 className="w-3.5 h-3.5 text-blue-600" /> API Docs</>}
+                      {effectiveView === 'about' && <><Info className="w-3.5 h-3.5 text-blue-600" /> About Us</>}
+                      {effectiveView === 'contact' && <><Mail className="w-3.5 h-3.5 text-blue-600" /> Contact Us</>}
                       {effectiveView === 'profile' && <><UserIcon className="w-3.5 h-3.5 text-blue-600" /> Profile</>}
                       {effectiveView === 'settings' && <><Settings className="w-3.5 h-3.5 text-blue-600" /> Settings</>}
                       {effectiveView === 'admin' && <><Shield className="w-3.5 h-3.5 text-indigo-600" /> Admin Panel</>}
@@ -1278,6 +1284,54 @@ export function App() {
                           {effectiveView === 'docs' && <Check className="w-4 h-4 text-blue-600" />}
                         </button>
 
+                        {/* About Us */}
+                        <button
+                          onClick={() => {
+                            handleViewChange('about');
+                            setIsNavDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left cursor-pointer ${
+                            effectiveView === 'about'
+                              ? 'bg-blue-50 text-blue-900 font-bold'
+                              : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`p-1.5 rounded-lg ${effectiveView === 'about' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'}`}>
+                              <Info className="w-3.5 h-3.5" />
+                            </div>
+                            <div>
+                              <div className="font-semibold text-slate-900">About Us</div>
+                              <div className="text-[10px] text-slate-500">0% Fee USPs &amp; Architecture</div>
+                            </div>
+                          </div>
+                          {effectiveView === 'about' && <Check className="w-4 h-4 text-blue-600" />}
+                        </button>
+
+                        {/* Contact Us */}
+                        <button
+                          onClick={() => {
+                            handleViewChange('contact');
+                            setIsNavDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left cursor-pointer ${
+                            effectiveView === 'contact'
+                              ? 'bg-blue-50 text-blue-900 font-bold'
+                              : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`p-1.5 rounded-lg ${effectiveView === 'contact' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'}`}>
+                              <Mail className="w-3.5 h-3.5" />
+                            </div>
+                            <div>
+                              <div className="font-semibold text-slate-900">Contact Us</div>
+                              <div className="text-[10px] text-slate-500">Corporate office &amp; support</div>
+                            </div>
+                          </div>
+                          {effectiveView === 'contact' && <Check className="w-4 h-4 text-blue-600" />}
+                        </button>
+
                         {/* Profile Section */}
                         <button
                           onClick={() => {
@@ -1363,11 +1417,34 @@ export function App() {
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
-                <div className="px-3 py-1.5 rounded-lg font-semibold bg-blue-600 text-white shadow-xs flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 text-xs font-semibold">
+                <button
+                  onClick={() => handleViewChange('about')}
+                  className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                    activeView === 'about'
+                      ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200/80'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  About Us
+                </button>
+                <button
+                  onClick={() => handleViewChange('contact')}
+                  className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                    activeView === 'contact'
+                      ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200/80'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  Contact Us
+                </button>
+                <button
+                  onClick={() => handleViewChange('auth')}
+                  className="px-3.5 py-1.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs flex items-center gap-1.5 transition-all cursor-pointer ml-1"
+                >
                   <Lock className="w-3.5 h-3.5" />
-                  <span>Sign In</span>
-                </div>
+                  <span>Merchant Login</span>
+                </button>
               </div>
             )}
           </div>
@@ -1378,8 +1455,18 @@ export function App() {
       {/* Main Content Area */}
       <main className={effectiveView === 'checkout' ? "w-full max-w-4xl mx-auto px-4 py-6 sm:py-10 flex-1 flex flex-col justify-center" : "max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 flex-1"}>
         {!currentUser ? (
-          /* When signed out: ONLY show Public Checkout if viewing order or AuthPortal Login */
-          isPublicCheckout ? (
+          /* When signed out: Render requested public page or AuthPortal */
+          activeView === 'about' ? (
+            <AboutPage
+              onNavigateToContact={() => handleViewChange('contact')}
+              onNavigateToDocs={() => handleViewChange('docs')}
+              onNavigateToAuth={() => handleViewChange('auth')}
+            />
+          ) : activeView === 'contact' ? (
+            <ContactPage
+              onBackToDashboard={() => handleViewChange('auth')}
+            />
+          ) : isPublicCheckout ? (
             isLoadingCheckout ? (
               <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
                 <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -1519,7 +1606,23 @@ export function App() {
               <DeveloperApiDocs profile={profile} />
             )}
 
-            {/* VIEW 7: Profile Section */}
+            {/* VIEW 7: About Page */}
+            {effectiveView === 'about' && (
+              <AboutPage
+                onNavigateToContact={() => handleViewChange('contact')}
+                onNavigateToDocs={() => handleViewChange('docs')}
+                onNavigateToAuth={() => handleViewChange(currentUser ? 'dashboard' : 'auth')}
+              />
+            )}
+
+            {/* VIEW 8: Contact Page */}
+            {effectiveView === 'contact' && (
+              <ContactPage
+                onBackToDashboard={() => handleViewChange(currentUser ? 'dashboard' : 'auth')}
+              />
+            )}
+
+            {/* VIEW 9: Profile Section */}
             {effectiveView === 'profile' && (
               <ProfileSection
                 currentUser={currentUser}
@@ -1530,7 +1633,7 @@ export function App() {
               />
             )}
 
-            {/* VIEW 8: Settings Section */}
+            {/* VIEW 10: Settings Section */}
             {effectiveView === 'settings' && (
               <SettingsSection
                 currentUser={currentUser}
@@ -1553,6 +1656,30 @@ export function App() {
               <span className="text-slate-300">|</span>
               <span className="font-medium text-blue-700">Zero-Gateway-Fee Enterprise UPI Engine</span>
             </div>
+
+            <div className="flex items-center gap-3 text-xs font-semibold text-slate-600">
+              <button
+                onClick={() => handleViewChange('about')}
+                className="hover:text-blue-600 cursor-pointer transition-colors"
+              >
+                About Us
+              </button>
+              <span className="text-slate-300">•</span>
+              <button
+                onClick={() => handleViewChange('contact')}
+                className="hover:text-blue-600 cursor-pointer transition-colors"
+              >
+                Contact Us
+              </button>
+              <span className="text-slate-300">•</span>
+              <button
+                onClick={() => handleViewChange(currentUser ? 'docs' : 'auth')}
+                className="hover:text-blue-600 cursor-pointer transition-colors"
+              >
+                API Docs
+              </button>
+            </div>
+
             <div className="text-[11px] text-slate-500 flex items-center gap-3 font-sans">
               {currentUser ? (
                 <>
