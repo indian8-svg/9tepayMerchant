@@ -20,6 +20,7 @@ import { HostedCheckout } from './components/HostedCheckout';
 import { DeveloperApiDocs } from './components/DeveloperApiDocs';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AuthPortal } from './components/AuthPortal';
+import { Logo } from './components/Logo';
 
 function getOrderIdFromUrl(): string | null {
   try {
@@ -819,22 +820,10 @@ export function App() {
         <header className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md sticky top-0 z-40 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm shrink-0">
-              <QrCode className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-bold text-sm sm:text-base text-slate-900 tracking-tight">
-                  9tepay Merchant Gateway
-                </h1>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 hidden sm:inline-block">
-                  NPCI Deeplink Intent
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 font-sans hidden md:block">
-                9tepay.com &bull; Enterprise UPI Switching Engine &bull; GPay / PhonePe / Paytm / BHIM
-              </p>
-            </div>
+            <Logo size="md" showSubtitle={true} />
+            <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 hidden lg:inline-block ml-1">
+              NPCI Deeplink Intent
+            </span>
           </div>
 
           {/* Navigation Bar & User Controls */}
@@ -1070,11 +1059,11 @@ export function App() {
       {/* Bottom Footer - Hidden in Standalone Checkout Mode */}
       {effectiveView !== 'checkout' && (
         <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500 shadow-2xs">
-          <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-slate-800">9tepay Merchant Gateway</span>
-              <span>&bull;</span>
-              <span className="font-medium text-blue-700">Zero-Gateway-Fee UPI Processing Engine</span>
+              <Logo size="sm" showSubtitle={false} />
+              <span className="text-slate-300">|</span>
+              <span className="font-medium text-blue-700">Zero-Gateway-Fee Enterprise UPI Engine</span>
             </div>
             <div className="text-[11px] text-slate-500 flex items-center gap-3 font-sans">
               {currentUser ? (

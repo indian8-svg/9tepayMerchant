@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { User } from '../types';
 import { safeFetch } from '../utils/api';
+import { Logo } from './Logo';
 
 interface AuthPortalProps {
   currentUser: User | null;
@@ -154,12 +155,15 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
       <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm relative overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="mb-3">
+              <Logo size="lg" showSubtitle={true} />
+            </div>
+            <div className="flex items-center gap-2 mt-1">
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 font-sans">
-                Enterprise UPI Gateway
+                Enterprise Merchant Portal
               </span>
               <span className="text-xs text-slate-500 font-sans">
-                Direct Merchant Settlement &amp; API Controls
+                Direct Settlement &amp; API Controls
               </span>
             </div>
             <h2 className="text-xl font-bold text-slate-900 mt-2 flex items-center gap-2">

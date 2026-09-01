@@ -25,6 +25,7 @@ import {
 import { Order, BankAccountQR, User } from '../types';
 import { generateAppDeeplinks, formatCurrency } from '../utils/upi';
 import { safeFetch } from '../utils/api';
+import { Logo } from './Logo';
 
 interface HostedCheckoutProps {
   order: Order;
@@ -261,7 +262,19 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
         </div>
       ) : (
         /* Active Checkout Interface */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="space-y-4">
+          {/* Official 9tepay Header Bar */}
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl px-5 py-3 flex items-center justify-between shadow-lg">
+            <Logo variant="dark" size="sm" showSubtitle={true} />
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                Secure Payment Gateway
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: QR Code & Intent Deeplink Actions */}
           <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xl flex flex-col justify-between space-y-6">
             {/* Header with Merchant & Amount */}
@@ -569,6 +582,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
               </form>
             </div>
           </div>
+        </div>
         </div>
       )}
 
