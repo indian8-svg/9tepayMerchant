@@ -177,24 +177,6 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
 
   return (
     <div className="max-w-4xl w-full mx-auto space-y-6">
-      {/* Top Banner & Context Switcher (Shown ONLY when logged-in merchant previews checkout) */}
-      {currentUser && onBackToDashboard && (
-        <div className="flex items-center justify-between bg-slate-900/80 border border-slate-800 rounded-2xl px-4 py-2.5">
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-              Merchant Preview Mode
-            </span>
-          </div>
-          <button
-            onClick={onBackToDashboard}
-            className="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg border border-slate-700"
-          >
-            <span>&larr; Back to Dashboard</span>
-          </button>
-        </div>
-      )}
-
       {order.status === 'PAID' ? (
         /* Payment Success Receipt View */
         <div className="bg-slate-900 border border-emerald-500/30 rounded-3xl p-6 sm:p-10 shadow-2xl relative overflow-hidden text-center space-y-6">
@@ -535,47 +517,6 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                   <span>Submit & Verify UTR</span>
                 </button>
               </form>
-
-              {/* Instant Simulator Button */}
-              <div className="pt-3 border-t border-slate-800">
-                <div className="text-[11px] text-slate-400 mb-2 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-amber-400" />
-                  <span>Sandbox Testing Mode:</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleSimulateInstantPay}
-                  disabled={isVerifying}
-                  className="w-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-semibold py-2 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <span>Simulate Bank Instant Payment (1-Click)</span>
-                </button>
-              </div>
-            </div>
-
-            {/* UPI String Raw Inspector Card */}
-            <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 text-xs space-y-2">
-              <div className="flex items-center justify-between text-slate-400">
-                <span className="font-semibold uppercase text-[10px] tracking-wider text-slate-400">
-                  Raw UPI Payload
-                </span>
-                <button
-                  onClick={handleCopyUpiString}
-                  className="hover:text-white flex items-center gap-1 text-[11px] cursor-pointer"
-                >
-                  {copiedUpiString ? (
-                    <span className="text-emerald-400 font-medium">Copied!</span>
-                  ) : (
-                    <>
-                      <Copy className="w-3 h-3" />
-                      <span>Copy URI</span>
-                    </>
-                  )}
-                </button>
-              </div>
-              <div className="bg-slate-900 p-2.5 rounded-lg font-mono text-[10px] text-slate-300 break-all border border-slate-800">
-                {order.upiString}
-              </div>
             </div>
           </div>
         </div>
