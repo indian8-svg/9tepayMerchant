@@ -36,6 +36,15 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  // OTP Verification States
+  const [otpStep, setOtpStep] = useState(false);
+  const [verificationId, setVerificationId] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpEmail, setOtpEmail] = useState('');
+  const [demoOtp, setDemoOtp] = useState('');
+  const [smtpSent, setSmtpSent] = useState(false);
+  const [smtpError, setSmtpError] = useState('');
+
   // Register fields
   const [regBusinessName, setRegBusinessName] = useState('');
   const [regOwnerName, setRegOwnerName] = useState('');
@@ -78,7 +87,18 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
         ? { emailOrPhone: customCredentials.email, role: customCredentials.role }
         : { emailOrPhone, password, role: authMode === 'admin' ? 'admin' : 'merchant' };
 
-      const res = await safeFetch<{ success: boolean; user: User; token?: string; error?: string }>(
+      const res = await safeFetch<{
+        success: boolean;
+        otpRequired?: boolean;
+        verificationId?: string;
+        email?: string;
+        demoOtp?: string;
+        smtpSent?: boolean;
+        smtpError?: string;
+        user?: User;
+        token?: string;
+        error?: string;
+      }>(
         '/api/auth/login',
         {
           method: 'POST',
@@ -86,67 +106,29 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
         }
       );
 
-      if (res.ok && res.data?.success && res.data.user) {
-        saveRegisteredUserToLocalMap(res.data.user);
-        setSuccessMsg(`Welcome back, ${res.data.user.name}!`);
-        onLoginSuccess(res.data.user);
-        return;
+      if (res.ok && res.data?.success) {
+        if (res.data.otpRequired) {
+          setOtpStep(true);
+          setVerificationId(res.data.verificationId || '');
+          setOtpEmail(res.data.email || '');
+          setDemoOtp(res.data.demoOtp || '');
+          setSmtpSent(!!res.data.smtpSent);
+          setSmtpError(res.data.smtpError || '');
+          setSuccessMsg(`A 6-digit verification code has been dispatched to ${res.data.email}.`);
+          return;
+        }
+
+        if (res.data.user) {
+          saveRegisteredUserToLocalMap(res.data.user);
+          setSuccessMsg(`Welcome back, ${res.data.user.name}!`);
+          onLoginSuccess(res.data.user);
+          return;
+        }
       }
 
-      // Local fallback look up for stored user details
-      const targetRole = payload.role === 'admin' || payload.emailOrPhone?.toLowerCase().includes('admin') ? 'admin' : 'merchant';
-      const cleanInput = (payload.emailOrPhone || '').toLowerCase().trim();
-      const localMap = getRegisteredUsersMap();
-
-      if (localMap[cleanInput]) {
-        const storedUser = localMap[cleanInput];
-        setSuccessMsg(`Welcome back, ${storedUser.name}!`);
-        onLoginSuccess(storedUser);
-        return;
-      }
-
-      // If not previously stored, derive clean distinct user
-      const namePart = cleanInput ? cleanInput.split('@')[0] : 'merchant';
-      const ownerName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-      const fallbackUser: User = {
-        id: targetRole === 'admin' ? 'usr_admin_001' : `usr_${Math.random().toString(36).substring(2, 8)}`,
-        name: targetRole === 'admin' ? 'Master Administrator' : ownerName,
-        email: cleanInput || (targetRole === 'admin' ? 'admin@9tepay.com' : 'merchant@9tepay.com'),
-        phone: '+91 98765 43210',
-        role: targetRole,
-        businessName: targetRole === 'admin' ? '9tepay Master Administration' : `${ownerName} Store`,
-        vpa: targetRole === 'admin' ? 'admin.gateway@icici' : `${namePart.toLowerCase()}@icici`,
-        status: 'active',
-        createdAt: new Date().toISOString(),
-      };
-      saveRegisteredUserToLocalMap(fallbackUser);
-      setSuccessMsg(`Welcome back, ${fallbackUser.name}!`);
-      onLoginSuccess(fallbackUser);
-    } catch {
-      const targetRole = authMode === 'admin' ? 'admin' : 'merchant';
-      const cleanInput = (emailOrPhone || '').toLowerCase().trim();
-      const localMap = getRegisteredUsersMap();
-
-      if (localMap[cleanInput]) {
-        onLoginSuccess(localMap[cleanInput]);
-        return;
-      }
-
-      const namePart = cleanInput ? cleanInput.split('@')[0] : 'merchant';
-      const ownerName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-      const fallbackUser: User = {
-        id: targetRole === 'admin' ? 'usr_admin_001' : `usr_${Math.random().toString(36).substring(2, 8)}`,
-        name: targetRole === 'admin' ? 'Master Administrator' : ownerName,
-        email: cleanInput || (targetRole === 'admin' ? 'admin@9tepay.com' : 'merchant@9tepay.com'),
-        phone: '+91 98765 43210',
-        role: targetRole,
-        businessName: targetRole === 'admin' ? '9tepay Master Administration' : `${ownerName} Store`,
-        vpa: targetRole === 'admin' ? 'admin.gateway@icici' : `${namePart.toLowerCase()}@icici`,
-        status: 'active',
-        createdAt: new Date().toISOString(),
-      };
-      saveRegisteredUserToLocalMap(fallbackUser);
-      onLoginSuccess(fallbackUser);
+      setErrorMsg(res.data?.error || 'Failed to authenticate. Please verify email/credentials.');
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Error communicating with authentication servers.');
     } finally {
       setIsLoading(false);
     }
@@ -166,8 +148,20 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
 
     setIsLoading(true);
     setErrorMsg('');
+    setSuccessMsg('');
     try {
-      const res = await safeFetch<{ success: boolean; user: User; token?: string; error?: string }>(
+      const res = await safeFetch<{
+        success: boolean;
+        otpRequired?: boolean;
+        verificationId?: string;
+        email?: string;
+        demoOtp?: string;
+        smtpSent?: boolean;
+        smtpError?: string;
+        user?: User;
+        token?: string;
+        error?: string;
+      }>(
         '/api/auth/register',
         {
           method: 'POST',
@@ -183,46 +177,82 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
         }
       );
 
+      if (res.ok && res.data?.success) {
+        if (res.data.otpRequired) {
+          setOtpStep(true);
+          setVerificationId(res.data.verificationId || '');
+          setOtpEmail(res.data.email || '');
+          setDemoOtp(res.data.demoOtp || '');
+          setSmtpSent(!!res.data.smtpSent);
+          setSmtpError(res.data.smtpError || '');
+          setSuccessMsg(`A security code was sent to ${res.data.email} to verify registration.`);
+          return;
+        }
+
+        if (res.data.user) {
+          saveRegisteredUserToLocalMap(res.data.user);
+          setSuccessMsg('Account registered successfully!');
+          onLoginSuccess(res.data.user);
+          return;
+        }
+      }
+
+      setErrorMsg(res.data?.error || 'Registration failed. Please try again.');
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Error communicating with registration systems.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otpCode || otpCode.trim().length !== 6) {
+      setErrorMsg('Please enter a valid 6-digit OTP code.');
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMsg('');
+    try {
+      const res = await safeFetch<{
+        success: boolean;
+        user: User;
+        token?: string;
+        error?: string;
+      }>(
+        '/api/auth/verify-otp',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            verificationId,
+            otp: otpCode.trim(),
+          }),
+        }
+      );
+
       if (res.ok && res.data?.success && res.data.user) {
         saveRegisteredUserToLocalMap(res.data.user);
-        setSuccessMsg('Account registered successfully! Direct UPI settlement activated.');
+        setSuccessMsg(`Verification successful! Welcome, ${res.data.user.name}.`);
         onLoginSuccess(res.data.user);
         return;
       }
 
-      // Fallback registration
-      const fallbackUser: User = {
-        id: `usr_${Math.random().toString(36).substring(2, 8)}`,
-        name: regOwnerName || regBusinessName,
-        email: regEmail.trim().toLowerCase(),
-        phone: regPhone || '+91 98000 00000',
-        role: 'merchant',
-        businessName: regBusinessName,
-        vpa: regVpa.trim().toLowerCase(),
-        status: 'active',
-        createdAt: new Date().toISOString(),
-      };
-      saveRegisteredUserToLocalMap(fallbackUser);
-      setSuccessMsg('Account registered successfully! Direct UPI settlement activated.');
-      onLoginSuccess(fallbackUser);
-    } catch {
-      const fallbackUser: User = {
-        id: `usr_${Math.random().toString(36).substring(2, 8)}`,
-        name: regOwnerName || regBusinessName,
-        email: regEmail.trim().toLowerCase(),
-        phone: regPhone || '+91 98000 00000',
-        role: 'merchant',
-        businessName: regBusinessName,
-        vpa: regVpa.trim().toLowerCase(),
-        status: 'active',
-        createdAt: new Date().toISOString(),
-      };
-      saveRegisteredUserToLocalMap(fallbackUser);
-      setSuccessMsg('Account registered successfully! Direct UPI settlement activated.');
-      onLoginSuccess(fallbackUser);
+      setErrorMsg(res.data?.error || 'Incorrect OTP code. Please try again.');
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Error communicating with verification systems.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleCancelOtp = () => {
+    setOtpStep(false);
+    setOtpCode('');
+    setVerificationId('');
+    setSmtpError('');
+    setSuccessMsg('');
+    setErrorMsg('');
   };
 
   return (
@@ -275,285 +305,402 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
         {/* Left Form Card */}
         <div className="md:col-span-7 bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-7 shadow-sm">
-          {/* Mode Switcher */}
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-4 mb-6">
-            <button
-              onClick={() => { setAuthMode('login'); setErrorMsg(''); }}
-              className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                authMode === 'login'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
-              }`}
-            >
-              <UserCheck className="w-4 h-4" />
-              <span>Merchant Sign In</span>
-            </button>
-
-            <button
-              onClick={() => { setAuthMode('register'); setErrorMsg(''); }}
-              className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                authMode === 'register'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
-              }`}
-            >
-              <Building className="w-4 h-4" />
-              <span>Register</span>
-            </button>
-
-            <button
-              onClick={() => { setAuthMode('admin'); setErrorMsg(''); }}
-              className={`py-2.5 px-3.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                authMode === 'admin'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
-              }`}
-              title="Administrator Login"
-            >
-              <Shield className="w-4 h-4" />
-              <span>Admin</span>
-            </button>
-          </div>
-
-          {/* Feedback messages */}
-          {errorMsg && (
-            <div className="mb-4 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
-          {successMsg && (
-            <div className="mb-4 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 flex items-start gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              <span>{successMsg}</span>
-            </div>
-          )}
-
-          {/* Form: Merchant Login */}
-          {authMode === 'login' && (
-            <form onSubmit={(e) => handleLogin(e)} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Email Address or Mobile Number
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={emailOrPhone}
-                    onChange={(e) => setEmailOrPhone(e.target.value)}
-                    required
-                    placeholder="merchant@9tepay.com or +91 98765 43210"
-                    className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs sm:text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Password
-                  </label>
-                  <span className="text-[11px] text-blue-600 hover:text-blue-700 hover:underline cursor-pointer">
-                    Forgot password?
-                  </span>
-                </div>
-                <div className="relative">
-                  <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    placeholder="Enter password"
-                    className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs sm:text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between text-xs text-slate-600 pt-1">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input type="checkbox" defaultChecked className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-                  <span>Remember Session (7 Days)</span>
-                </label>
-                <span className="text-[11px] text-slate-500 font-medium">
-                  256-bit Encrypted
-                </span>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm py-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
-              >
-                <span>Sign In to Merchant Dashboard</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </form>
-          )}
-
-          {/* Form: Merchant Registration */}
-          {authMode === 'register' && (
-            <form onSubmit={handleRegister} className="space-y-3.5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Business / Store Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={regBusinessName}
-                    onChange={(e) => setRegBusinessName(e.target.value)}
-                    required
-                    placeholder="e.g. Apex Digital Store"
-                    className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Owner / Contact Name
-                  </label>
-                  <input
-                    type="text"
-                    value={regOwnerName}
-                    onChange={(e) => setRegOwnerName(e.target.value)}
-                    placeholder="e.g. Abhay Sharma"
-                    className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Email Address *
-                  </label>
-                  <input
-                    type="email"
-                    value={regEmail}
-                    onChange={(e) => setRegEmail(e.target.value)}
-                    required
-                    placeholder="owner@store.com"
-                    className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Mobile Number
-                  </label>
-                  <input
-                    type="tel"
-                    value={regPhone}
-                    onChange={(e) => setRegPhone(e.target.value)}
-                    placeholder="+91 98765 00000"
-                    className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
-                  />
-                </div>
-              </div>
-
-              {/* Settlement UPI VPA */}
-              <div className="p-3.5 rounded-xl bg-blue-50/50 border border-blue-200/80 space-y-2">
-                <div>
-                  <label className="block text-[11px] font-bold text-blue-900 mb-1 flex items-center justify-between">
-                    <span>Receiver UPI VPA (Direct Settlement) *</span>
-                    <span className="text-[10px] text-blue-700 font-semibold bg-blue-100/80 px-2 py-0.5 rounded">0% Fee</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={regVpa}
-                    onChange={(e) => setRegVpa(e.target.value)}
-                    required
-                    placeholder="yourname@okaxis or business@icici"
-                    className="w-full bg-white border border-blue-200 text-blue-900 font-mono text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
-                  />
-                </div>
-                <p className="text-[11px] text-slate-600">
-                  All customer payments generated through this gateway will route directly to this UPI address.
+          {otpStep ? (
+            <div className="space-y-6">
+              <div className="border-b border-slate-100 pb-4">
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-blue-600" />
+                  <span>Two-Factor Authentication Required</span>
+                </h3>
+                <p className="text-xs text-slate-600 mt-1">
+                  We've sent a 6-digit verification code to <strong className="text-slate-900 font-mono">{otpEmail}</strong> from <span className="font-mono text-blue-600">info@9tepay.online</span>.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Status Indicator */}
+              {smtpSent ? (
+                <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-xs text-emerald-800 flex items-center gap-2 font-medium">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>E-mail sent successfully via info@9tepay.online.</span>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {smtpError && (
+                    <div className="p-3.5 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-800 flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2 font-semibold text-rose-900">
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>SMTP Authentication Failure (Error 535)</span>
+                      </div>
+                      <p className="text-[11px] text-rose-700 leading-normal pl-6">
+                        The SMTP server rejected your email credentials: <code className="font-mono bg-rose-100 px-1.5 py-0.5 rounded text-rose-900">{smtpError}</code>.
+                      </p>
+                      <div className="text-[11px] text-slate-600 pl-6 space-y-1 mt-1 border-t border-rose-200/50 pt-2">
+                        <p className="font-semibold text-slate-700">How to resolve for Microsoft 365 / Outlook:</p>
+                        <ul className="list-disc pl-4 space-y-1">
+                          <li>Enable <strong>SMTP AUTH</strong> for the mailbox <code className="font-mono text-slate-800">info@9tepay.online</code> in your <strong>Microsoft 365 Admin Center</strong> under Active Users &gt; Mail &gt; Manage email apps.</li>
+                          <li>If Multi-Factor Authentication is enabled on the account, generate and use an <strong>App Password</strong> in your Microsoft Security Account settings instead of your regular password.</li>
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="p-3.5 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-800 flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2 font-medium">
+                      <AlertCircle className="w-4 h-4 text-blue-600 shrink-0" />
+                      <span>{smtpError ? "SMTP Authentication Fallback" : "Demo & Testing Console Fallback Active"}</span>
+                    </div>
+                    <p className="text-[11px] text-blue-700 leading-normal pl-6">
+                      {smtpError 
+                        ? "To prevent login blockages, we've fallen back to the local console. You can verify this session using this temporary code:" 
+                        : "Because live mail credentials are not configured in your settings, you can verify using this temporary security code:"}
+                      <strong className="block w-fit bg-white px-3 py-1 mt-2 rounded border border-blue-200 font-mono text-blue-800 text-base">{demoOtp}</strong>
+                    </p>
+                    <p className="text-[10px] text-slate-500 pl-6 mt-1">
+                      Configure your valid <code className="font-mono bg-blue-100/50 px-1 rounded text-blue-800">SMTP_PASS</code> in environment secrets to send real transactional emails to your inbox.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Feedback messages */}
+              {errorMsg && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+
+              {successMsg && !errorMsg && (
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>{successMsg}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Bank Account (Optional)
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 text-center">
+                    Enter 6-Digit One-Time Password (OTP)
                   </label>
-                  <input
-                    type="text"
-                    value={regBankAccount}
-                    onChange={(e) => setRegBankAccount(e.target.value)}
-                    placeholder="919876543210"
-                    className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
-                  />
+                  <div className="flex justify-center max-w-sm mx-auto">
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="• • • • • •"
+                      required
+                      className="w-full bg-slate-50/50 border border-slate-300 text-slate-900 font-mono text-xl tracking-[12px] sm:tracking-[20px] rounded-xl text-center py-3.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-300 placeholder:tracking-normal"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-500 text-center mt-2">
+                    Check your spam or junk folder if you don't receive the email in a few seconds.
+                  </p>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    IFSC Code (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={regIfsc}
-                    onChange={(e) => setRegIfsc(e.target.value)}
-                    placeholder="ICIC0000102"
-                    className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
-                  />
+                <div className="pt-2 space-y-2">
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm py-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <span>Verify Code &amp; Complete Access</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCancelOtp}
+                    className="w-full bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 font-semibold text-xs py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span>Go Back / Change Email</span>
+                  </button>
                 </div>
+              </form>
+            </div>
+          ) : (
+            <>
+              {/* Mode Switcher */}
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-4 mb-6">
+                <button
+                  onClick={() => { setAuthMode('login'); setErrorMsg(''); }}
+                  className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    authMode === 'login'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
+                  }`}
+                >
+                  <UserCheck className="w-4 h-4" />
+                  <span>Merchant Sign In</span>
+                </button>
+
+                <button
+                  onClick={() => { setAuthMode('register'); setErrorMsg(''); }}
+                  className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    authMode === 'register'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
+                  }`}
+                >
+                  <Building className="w-4 h-4" />
+                  <span>Register</span>
+                </button>
+
+                <button
+                  onClick={() => { setAuthMode('admin'); setErrorMsg(''); }}
+                  className={`py-2.5 px-3.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    authMode === 'admin'
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
+                  }`}
+                  title="Administrator Login"
+                >
+                  <Shield className="w-4 h-4" />
+                  <span>Admin</span>
+                </button>
               </div>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm py-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                <span>Create Merchant Account &amp; Get API Keys</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </form>
-          )}
+              {/* Feedback messages */}
+              {errorMsg && (
+                <div className="mb-4 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
 
-          {/* Form: Admin Login */}
-          {authMode === 'admin' && (
-            <form onSubmit={(e) => handleLogin(e, { email: 'admin@9tepay.com', role: 'admin' })} className="space-y-4">
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700">
-                Superadmin credentials grant full access to master system diagnostics, all registered merchants, fee controls, and SMS reconciliation engines.
-              </div>
+              {successMsg && (
+                <div className="mb-4 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>{successMsg}</span>
+                </div>
+              )}
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Superadmin Email
-                </label>
-                <input
-                  type="text"
-                  value="admin@9tepay.com"
-                  readOnly
-                  className="w-full bg-slate-100 border border-slate-200 text-slate-700 text-xs sm:text-sm rounded-xl px-4 py-2.5 font-mono cursor-not-allowed"
-                />
-              </div>
+              {/* Form: Merchant Login */}
+              {authMode === 'login' && (
+                <form onSubmit={(e) => handleLogin(e)} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Email Address or Mobile Number
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={emailOrPhone}
+                        onChange={(e) => setEmailOrPhone(e.target.value)}
+                        required
+                        placeholder="merchant@9tepay.com or +91 98765 43210"
+                        className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs sm:text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
+                      />
+                    </div>
+                  </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Admin Passcode
-                </label>
-                <input
-                  type="password"
-                  value="••••••••••••"
-                  readOnly
-                  className="w-full bg-slate-100 border border-slate-200 text-slate-700 text-xs sm:text-sm rounded-xl px-4 py-2.5 font-mono"
-                />
-              </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-slate-700">
+                        Password
+                      </label>
+                      <span className="text-[11px] text-blue-600 hover:text-blue-700 hover:underline cursor-pointer">
+                        Forgot password?
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        placeholder="Enter password"
+                        className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs sm:text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
+                      />
+                    </div>
+                  </div>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs sm:text-sm py-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                <Shield className="w-4 h-4" />
-                <span>Sign In as Master Administrator</span>
-              </button>
-            </form>
+                  <div className="flex items-center justify-between text-xs text-slate-600 pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input type="checkbox" defaultChecked className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                      <span>Remember Session (7 Days)</span>
+                    </label>
+                    <span className="text-[11px] text-slate-500 font-medium">
+                      256-bit Encrypted
+                    </span>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm py-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
+                  >
+                    <span>Sign In to Merchant Dashboard</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </form>
+              )}
+
+              {/* Form: Merchant Registration */}
+              {authMode === 'register' && (
+                <form onSubmit={handleRegister} className="space-y-3.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Business / Store Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={regBusinessName}
+                        onChange={(e) => setRegBusinessName(e.target.value)}
+                        required
+                        placeholder="e.g. Apex Digital Store"
+                        className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Owner / Contact Name
+                      </label>
+                      <input
+                        type="text"
+                        value={regOwnerName}
+                        onChange={(e) => setRegOwnerName(e.target.value)}
+                        placeholder="e.g. Abhay Sharma"
+                        className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Email Address *
+                      </label>
+                      <input
+                        type="email"
+                        value={regEmail}
+                        onChange={(e) => setRegEmail(e.target.value)}
+                        required
+                        placeholder="owner@store.com"
+                        className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Mobile Number
+                      </label>
+                      <input
+                        type="tel"
+                        value={regPhone}
+                        onChange={(e) => setRegPhone(e.target.value)}
+                        placeholder="+91 98765 00000"
+                        className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Settlement UPI VPA */}
+                  <div className="p-3.5 rounded-xl bg-blue-50/50 border border-blue-200/80 space-y-2">
+                    <div>
+                      <label className="block text-[11px] font-bold text-blue-900 mb-1 flex items-center justify-between">
+                        <span>Receiver UPI VPA (Direct Settlement) *</span>
+                        <span className="text-[10px] text-blue-700 font-semibold bg-blue-100/80 px-2 py-0.5 rounded">0% Fee</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={regVpa}
+                        onChange={(e) => setRegVpa(e.target.value)}
+                        required
+                        placeholder="yourname@okaxis or business@icici"
+                        className="w-full bg-white border border-blue-200 text-blue-900 font-mono text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-600">
+                      All customer payments generated through this gateway will route directly to this UPI address.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Bank Account (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={regBankAccount}
+                        onChange={(e) => setRegBankAccount(e.target.value)}
+                        placeholder="919876543210"
+                        className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        IFSC Code (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={regIfsc}
+                        onChange={(e) => setRegIfsc(e.target.value)}
+                        placeholder="ICIC0000102"
+                        className="w-full bg-slate-50/50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm py-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <span>Create Merchant Account &amp; Get API Keys</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </form>
+              )}
+
+              {/* Form: Admin Login */}
+              {authMode === 'admin' && (
+                <form onSubmit={(e) => handleLogin(e, { email: 'admin@9tepay.com', role: 'admin' })} className="space-y-4">
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700">
+                    Superadmin credentials grant full access to master system diagnostics, all registered merchants, fee controls, and SMS reconciliation engines.
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Superadmin Email
+                    </label>
+                    <input
+                      type="text"
+                      value="admin@9tepay.com"
+                      readOnly
+                      className="w-full bg-slate-100 border border-slate-200 text-slate-700 text-xs sm:text-sm rounded-xl px-4 py-2.5 font-mono cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Admin Passcode
+                    </label>
+                    <input
+                      type="password"
+                      value="••••••••••••"
+                      readOnly
+                      className="w-full bg-slate-100 border border-slate-200 text-slate-700 text-xs sm:text-sm rounded-xl px-4 py-2.5 font-mono"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs sm:text-sm py-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <Shield className="w-4 h-4" />
+                    <span>Sign In as Master Administrator</span>
+                  </button>
+                </form>
+              )}
+            </>
           )}
         </div>
 

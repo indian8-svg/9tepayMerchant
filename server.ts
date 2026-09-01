@@ -50,6 +50,87 @@ app.use((req, res, next) => {
   next();
 });
 
+// --- OTP Verification Engine ---
+import nodemailer from "nodemailer";
+
+interface PendingVerification {
+  id: string;
+  type: "login" | "register" | "admin";
+  email: string;
+  otp: string;
+  payload: any;
+  expiresAt: number;
+}
+const pendingVerifications = new Map<string, PendingVerification>();
+
+function generateOtp(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+async function sendOtpEmail(toEmail: string, otp: string, type: "login" | "register" | "admin") {
+  const smtpHost = process.env.SMTP_HOST || "smtp.office365.com";
+  const smtpPort = Number(process.env.SMTP_PORT || 587);
+  const smtpUser = process.env.SMTP_USER || "info@9tepay.online";
+  const smtpPass = process.env.SMTP_PASS || "M9QUj@Dw9%DnXf?";
+
+  console.log(`[OTP Engine] Generating code ${otp} for ${toEmail} (${type}) using host ${smtpHost}:${smtpPort}`);
+
+  if (!smtpPass) {
+    console.warn(`[OTP Engine] SMTP_PASS not defined. Email was not sent. Standard console fallback triggered.`);
+    return { sent: false, error: "SMTP_PASS not configured" };
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+    });
+
+    const info = await transporter.sendMail({
+      from: `"9tepay Security" <${smtpUser}>`,
+      to: toEmail,
+      subject: `[9tepay] Your OTP Verification Code: ${otp}`,
+      text: `Your 9tepay OTP is ${otp}. It is valid for 10 minutes.`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 550px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+          <div style="text-align: center; margin-bottom: 24px;">
+            <span style="font-size: 24px; font-weight: 800; color: #2563eb; letter-spacing: -0.5px;">9tepay</span>
+            <div style="font-size: 11px; text-transform: uppercase; tracking: 1px; color: #64748b; font-weight: 700; margin-top: 4px;">Zero-Fee UPI Enterprise Gateway</div>
+          </div>
+          <div style="border-top: 3px solid #2563eb; padding-top: 24px;">
+            <h2 style="color: #0f172a; font-size: 18px; font-weight: 700; margin: 0 0 16px 0;">Security OTP Verification</h2>
+            <p style="color: #334155; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">
+              Use the security code below to complete your <strong>${type === "register" ? "account registration" : "dashboard login"}</strong>.
+            </p>
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; text-align: center; margin: 24px 0;">
+              <span style="font-family: monospace; font-size: 32px; font-weight: 800; color: #1e3a8a; letter-spacing: 6px;">${otp}</span>
+              <div style="color: #64748b; font-size: 11px; margin-top: 8px; font-weight: 500;">Valid for 10 minutes • Single-use only</div>
+            </div>
+            <p style="color: #475569; font-size: 13px; line-height: 1.5; margin: 0 0 20px 0;">
+              This code was requested from <strong>${toEmail}</strong>. If you did not initiate this request, please ignore this email or reach out to support.
+            </p>
+          </div>
+          <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; text-align: center; font-size: 11px; color: #94a3b8; line-height: 1.4;">
+            <p style="margin: 0;">Sent by <strong>9tepay.online</strong> Security Systems</p>
+            <p style="margin: 4px 0 0;">For assistance, contact <a href="mailto:info@9tepay.online" style="color: #2563eb; text-decoration: none;">info@9tepay.online</a></p>
+          </div>
+        </div>
+      `
+    });
+
+    console.log(`[OTP Engine] OTP sent successfully to ${toEmail}. Message ID: ${info.messageId}`);
+    return { sent: true, messageId: info.messageId };
+  } catch (error: any) {
+    console.error(`[OTP Engine] Error sending SMTP email to ${toEmail}:`, error);
+    return { sent: false, error: error.message };
+  }
+}
+
 // In-Memory Database for demonstration and live usage
 interface OrderItem {
   id: string;
@@ -552,81 +633,97 @@ app.get(["/api/auth/me", "/auth/me"], (_req, res) => {
   res.json({ success: true, user: currentUser, session: "payindia_session_active" });
 });
 
-app.post(["/api/auth/login", "/auth/login.php", "/api/login", "/auth/login"], (req, res) => {
-  const { emailOrPhone, password, role } = req.body;
-  const targetEmail = (emailOrPhone || "").trim().toLowerCase();
-  
-  if (role === "admin" || targetEmail === "admin@demotry.shop" || targetEmail === "admin@9tepay.com") {
-    currentUser = {
-      id: "usr_admin_001",
-      name: "Master Administrator",
-      email: targetEmail || "admin@9tepay.com",
-      phone: "+91 90000 00001",
-      role: "admin",
-      businessName: "9tepay Master Administration",
-      vpa: "admin.gateway@icici",
-      status: "active",
-      createdAt: "2026-01-01T00:00:00.000Z",
-    };
-    return res.json({ success: true, user: currentUser, token: "payindia_session_admin_live" });
+app.post(["/api/auth/login", "/auth/login.php", "/api/login", "/auth/login"], async (req, res) => {
+  try {
+    const { emailOrPhone, password, role } = req.body;
+    const targetEmail = (emailOrPhone || "").trim().toLowerCase();
+    
+    if (!targetEmail) {
+      return res.status(400).json({ success: false, error: "Email or phone number is required." });
+    }
+
+    let loginType: "login" | "admin" = "login";
+    let targetDestEmail = targetEmail;
+    let payload: any = {};
+
+    if (role === "admin" || targetEmail === "admin@demotry.shop" || targetEmail === "admin@9tepay.com") {
+      loginType = "admin";
+      targetDestEmail = targetEmail || "admin@9tepay.com";
+      payload = {
+        id: "usr_admin_001",
+        name: "Master Administrator",
+        email: targetDestEmail,
+        phone: "+91 90000 00001",
+        role: "admin",
+        businessName: "9tepay Master Administration",
+        vpa: "admin.gateway@icici",
+        status: "active",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      };
+    } else {
+      let found = merchantsList.find(
+        (m) => m.email.toLowerCase() === targetEmail || m.phone === targetEmail
+      );
+
+      if (!found) {
+        // Auto-provision unique merchant account for this email on login attempt
+        const emailName = targetEmail ? targetEmail.split("@")[0] : "Merchant";
+        const cleanOwnerName = emailName.charAt(0).toUpperCase() + emailName.slice(1);
+        const cleanBusinessName = `${cleanOwnerName} Store`;
+        const cleanVpa = `${emailName.toLowerCase()}@icici`;
+        const newMerchId = `merch_live_${Math.random().toString(36).substring(2, 8)}`;
+
+        found = {
+          id: newMerchId,
+          businessName: cleanBusinessName,
+          ownerName: cleanOwnerName,
+          email: targetEmail.includes("@") ? targetEmail : `merchant_${newMerchId}@9tepay.com`,
+          phone: !targetEmail.includes("@") ? targetEmail : "+91 98000 00000",
+          vpa: cleanVpa,
+          bankAccount: "919000000000",
+          ifsc: "ICIC0000102",
+          commissionRate: 0.0,
+          status: "active",
+          totalVolume: 0.0,
+          totalOrders: 0,
+          createdAt: new Date().toISOString(),
+        };
+      }
+
+      targetDestEmail = found.email;
+      payload = found;
+    }
+
+    const otp = generateOtp();
+    const verificationId = `vId_${Math.random().toString(36).substring(2, 10)}`;
+
+    pendingVerifications.set(verificationId, {
+      id: verificationId,
+      type: loginType,
+      email: targetDestEmail,
+      otp,
+      payload,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+
+    const emailRes = await sendOtpEmail(targetDestEmail, otp, loginType);
+
+    res.json({
+      success: true,
+      otpRequired: true,
+      verificationId,
+      email: targetDestEmail,
+      demoOtp: otp,
+      smtpSent: emailRes.sent,
+      smtpError: emailRes.error,
+    });
+  } catch (err: any) {
+    console.error("Error during login OTP generation:", err);
+    res.status(500).json({ success: false, error: "Internal server error during login OTP generation" });
   }
-
-  // Find existing merchant
-  let found = merchantsList.find(
-    (m) => m.email.toLowerCase() === targetEmail || m.phone === targetEmail
-  );
-
-  if (!found) {
-    // Brand new user logging in - auto-provision unique merchant account for this email
-    const emailName = targetEmail ? targetEmail.split("@")[0] : "Merchant";
-    const cleanOwnerName = emailName.charAt(0).toUpperCase() + emailName.slice(1);
-    const cleanBusinessName = `${cleanOwnerName} Store`;
-    const cleanVpa = `${emailName.toLowerCase()}@icici`;
-    const newMerchId = `merch_live_${Math.random().toString(36).substring(2, 8)}`;
-
-    found = {
-      id: newMerchId,
-      businessName: cleanBusinessName,
-      ownerName: cleanOwnerName,
-      email: targetEmail || `merchant_${newMerchId}@9tepay.com`,
-      phone: "+91 98000 00000",
-      vpa: cleanVpa,
-      bankAccount: "919000000000",
-      ifsc: "ICIC0000102",
-      commissionRate: 0.0,
-      status: "active",
-      totalVolume: 0.0,
-      totalOrders: 0,
-      createdAt: new Date().toISOString(),
-    };
-    merchantsList.unshift(found);
-  }
-
-  currentUser = {
-    id: found.id,
-    name: found.ownerName,
-    email: found.email,
-    phone: found.phone,
-    role: "merchant",
-    businessName: found.businessName,
-    vpa: found.vpa,
-    status: found.status,
-    createdAt: found.createdAt,
-  };
-
-  const userProf = getProfileForUser(found.id);
-  const userBanks = getBankAccountsForUser(found.id);
-
-  res.json({
-    success: true,
-    user: currentUser,
-    profile: userProf,
-    bankAccounts: userBanks,
-    token: `payindia_session_${found.id}`
-  });
 });
 
-app.post(["/api/auth/register", "/auth/register.php", "/api/register", "/auth/register"], (req, res) => {
+app.post(["/api/auth/register", "/auth/register.php", "/api/register", "/auth/register"], async (req, res) => {
   try {
     const { businessName, ownerName, email, phone, vpa, bankAccount, ifsc } = req.body || {};
 
@@ -642,45 +739,10 @@ app.post(["/api/auth/register", "/auth/register.php", "/api/register", "/auth/re
     const cleanBankAcc = bankAccount?.trim() || "919000000000";
     const cleanIfsc = ifsc?.trim().toUpperCase() || "ICIC0000102";
 
-    const existing = merchantsList.find((m) => m.email.toLowerCase() === cleanEmail);
-    if (existing) {
-      existing.businessName = cleanBusinessName;
-      existing.ownerName = cleanOwner;
-      existing.vpa = cleanVpa;
-      existing.phone = cleanPhone;
-      existing.bankAccount = cleanBankAcc;
-      existing.ifsc = cleanIfsc;
+    const otp = generateOtp();
+    const verificationId = `vId_${Math.random().toString(36).substring(2, 10)}`;
 
-      currentUser = {
-        id: existing.id,
-        name: existing.ownerName,
-        email: existing.email,
-        phone: existing.phone,
-        role: "merchant",
-        businessName: existing.businessName,
-        vpa: existing.vpa,
-        status: existing.status,
-        createdAt: existing.createdAt,
-      };
-
-      const userProf = getProfileForUser(existing.id);
-      userProf.businessName = cleanBusinessName;
-      userProf.vpa = cleanVpa;
-      userProf.email = cleanEmail;
-      userProf.phone = cleanPhone;
-
-      return res.status(200).json({
-        success: true,
-        message: "Account updated successfully.",
-        user: currentUser,
-        profile: userProf,
-        token: `payindia_session_${existing.id}`,
-      });
-    }
-
-    const newMerchId = `merch_live_${Math.random().toString(36).substring(2, 8)}`;
-    const newMerchant: MerchantListItem = {
-      id: newMerchId,
+    const regPayload = {
       businessName: cleanBusinessName,
       ownerName: cleanOwner,
       email: cleanEmail,
@@ -688,88 +750,229 @@ app.post(["/api/auth/register", "/auth/register.php", "/api/register", "/auth/re
       vpa: cleanVpa,
       bankAccount: cleanBankAcc,
       ifsc: cleanIfsc,
-      commissionRate: 0.0,
-      status: "active",
-      totalVolume: 0.0,
-      totalOrders: 0,
-      createdAt: new Date().toISOString(),
     };
 
-    merchantsList.unshift(newMerchant);
-
-    // Create primary bank account for new merchant
-    const newBankId = `bank_${newMerchId}_01`;
-    const newBankAccount: BankAccountItem = {
-      id: newBankId,
-      bankName: cleanIfsc.startsWith("HDFC")
-        ? "HDFC Bank"
-        : cleanIfsc.startsWith("SBIN")
-        ? "State Bank of India"
-        : cleanIfsc.startsWith("UTIB")
-        ? "Axis Bank"
-        : "ICICI Bank",
-      accountHolder: cleanBusinessName,
-      accountNumber: cleanBankAcc,
-      ifsc: cleanIfsc,
-      vpa: cleanVpa,
-      qrTitle: `${cleanBusinessName} Instant QR`,
-      qrType: "dynamic_intent",
-      qrColor: "#10b981",
-      isPrimary: true,
-      isActive: true,
-      dailyLimit: 500000,
-      dailyVolume: 0,
-      totalSettled: 0,
-      routingWeight: 5,
-      createdAt: new Date().toISOString(),
-    };
-
-    userBankAccountsMap.set(newMerchId, [newBankAccount]);
-
-    // Create user profile
-    const newUserProf = {
-      businessName: cleanBusinessName,
-      vpa: cleanVpa,
+    pendingVerifications.set(verificationId, {
+      id: verificationId,
+      type: "register",
       email: cleanEmail,
-      phone: cleanPhone,
-      apiKey: `pi_live_${newMerchId}_${Math.random().toString(36).substring(2, 8)}`,
-      apiSecret: `sk_live_${newMerchId}_${Math.random().toString(36).substring(2, 10)}`,
-      webhookUrl: "https://shop.example.com/api/webhook/upi-callback",
-      webhookSecret: `whsec_live_${Math.random().toString(36).substring(2, 10)}`,
-      autoApproveUtr: true,
-      settlementRate: 0.0,
-      routingStrategy: "smart_round_robin" as const,
-      requireStrictUtrFormat: true,
-      preventDuplicateUtr: true,
-    };
-    userProfilesMap.set(newMerchId, newUserProf);
+      otp,
+      payload: regPayload,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
 
-    currentUser = {
-      id: newMerchant.id,
-      name: newMerchant.ownerName,
-      email: newMerchant.email,
-      phone: newMerchant.phone,
-      role: "merchant",
-      businessName: newMerchant.businessName,
-      vpa: newMerchant.vpa,
-      status: newMerchant.status,
-      createdAt: newMerchant.createdAt,
-    };
+    const emailRes = await sendOtpEmail(cleanEmail, otp, "register");
 
-    return res.status(201).json({
+    res.json({
       success: true,
-      message: "Merchant registered successfully with instant VPA routing.",
-      user: currentUser,
-      profile: newUserProf,
-      bankAccounts: [newBankAccount],
-      token: `payindia_session_${newMerchId}`,
+      otpRequired: true,
+      verificationId,
+      email: cleanEmail,
+      demoOtp: otp,
+      smtpSent: emailRes.sent,
+      smtpError: emailRes.error,
     });
   } catch (err: any) {
-    console.error("Error during merchant registration:", err);
-    return res.status(500).json({
-      success: false,
-      error: err?.message || "Internal server error during registration",
-    });
+    console.error("Error during registration OTP generation:", err);
+    res.status(500).json({ success: false, error: "Internal server error during registration OTP generation" });
+  }
+});
+
+app.post(["/api/auth/verify-otp", "/api/verify-otp", "/auth/verify-otp"], (req, res) => {
+  try {
+    const { verificationId, otp } = req.body || {};
+
+    if (!verificationId || !otp) {
+      return res.status(400).json({ success: false, error: "Verification ID and OTP code are required." });
+    }
+
+    const session = pendingVerifications.get(verificationId);
+    if (!session) {
+      return res.status(400).json({ success: false, error: "Invalid or expired verification session." });
+    }
+
+    if (Date.now() > session.expiresAt) {
+      pendingVerifications.delete(verificationId);
+      return res.status(400).json({ success: false, error: "OTP has expired. Please request a new code." });
+    }
+
+    if (session.otp !== otp.trim()) {
+      return res.status(400).json({ success: false, error: "Incorrect 6-digit OTP code. Please try again." });
+    }
+
+    // OTP matched successfully! Delete verification session
+    pendingVerifications.delete(verificationId);
+
+    if (session.type === "admin") {
+      currentUser = session.payload;
+      return res.json({
+        success: true,
+        user: currentUser,
+        token: "payindia_session_admin_live"
+      });
+    }
+
+    if (session.type === "login") {
+      const merchant = session.payload;
+      const exists = merchantsList.some((m) => m.id === merchant.id);
+      if (!exists) {
+        merchantsList.unshift(merchant);
+      }
+
+      currentUser = {
+        id: merchant.id,
+        name: merchant.ownerName,
+        email: merchant.email,
+        phone: merchant.phone,
+        role: "merchant",
+        businessName: merchant.businessName,
+        vpa: merchant.vpa,
+        status: merchant.status,
+        createdAt: merchant.createdAt,
+      };
+
+      const userProf = getProfileForUser(merchant.id);
+      const userBanks = getBankAccountsForUser(merchant.id);
+
+      return res.json({
+        success: true,
+        user: currentUser,
+        profile: userProf,
+        bankAccounts: userBanks,
+        token: `payindia_session_${merchant.id}`
+      });
+    }
+
+    if (session.type === "register") {
+      const { businessName, ownerName, email, phone, vpa, bankAccount, ifsc } = session.payload;
+
+      const existing = merchantsList.find((m) => m.email.toLowerCase() === email);
+      if (existing) {
+        existing.businessName = businessName;
+        existing.ownerName = ownerName;
+        existing.vpa = vpa;
+        existing.phone = phone;
+        existing.bankAccount = bankAccount;
+        existing.ifsc = ifsc;
+
+        currentUser = {
+          id: existing.id,
+          name: existing.ownerName,
+          email: existing.email,
+          phone: existing.phone,
+          role: "merchant",
+          businessName: existing.businessName,
+          vpa: existing.vpa,
+          status: existing.status,
+          createdAt: existing.createdAt,
+        };
+
+        const userProf = getProfileForUser(existing.id);
+        userProf.businessName = businessName;
+        userProf.vpa = vpa;
+        userProf.email = email;
+        userProf.phone = phone;
+
+        return res.json({
+          success: true,
+          message: "Account updated successfully.",
+          user: currentUser,
+          profile: userProf,
+          token: `payindia_session_${existing.id}`,
+        });
+      }
+
+      const newMerchId = `merch_live_${Math.random().toString(36).substring(2, 8)}`;
+      const newMerchant: MerchantListItem = {
+        id: newMerchId,
+        businessName,
+        ownerName,
+        email,
+        phone,
+        vpa,
+        bankAccount,
+        ifsc,
+        commissionRate: 0.0,
+        status: "active",
+        totalVolume: 0.0,
+        totalOrders: 0,
+        createdAt: new Date().toISOString(),
+      };
+
+      merchantsList.unshift(newMerchant);
+
+      // Create primary bank account for new merchant
+      const newBankId = `bank_${newMerchId}_01`;
+      const newBankAccount: BankAccountItem = {
+        id: newBankId,
+        bankName: ifsc.startsWith("HDFC")
+          ? "HDFC Bank"
+          : ifsc.startsWith("SBIN")
+          ? "State Bank of India"
+          : ifsc.startsWith("UTIB")
+          ? "Axis Bank"
+          : "ICICI Bank",
+        accountHolder: businessName,
+        accountNumber: bankAccount,
+        ifsc: ifsc,
+        vpa: vpa,
+        qrTitle: `${businessName} Instant QR`,
+        qrType: "dynamic_intent",
+        qrColor: "#10b981",
+        isPrimary: true,
+        isActive: true,
+        dailyLimit: 500000,
+        dailyVolume: 0,
+        totalSettled: 0,
+        routingWeight: 5,
+        createdAt: new Date().toISOString(),
+      };
+
+      userBankAccountsMap.set(newMerchId, [newBankAccount]);
+
+      const newUserProf = {
+        businessName,
+        vpa,
+        email,
+        phone,
+        apiKey: `pi_live_${newMerchId}_${Math.random().toString(36).substring(2, 8)}`,
+        apiSecret: `sk_live_${newMerchId}_${Math.random().toString(36).substring(2, 10)}`,
+        webhookUrl: "https://shop.example.com/api/webhook/upi-callback",
+        webhookSecret: `whsec_live_${Math.random().toString(36).substring(2, 10)}`,
+        autoApproveUtr: true,
+        settlementRate: 0.0,
+        routingStrategy: "smart_round_robin" as const,
+        requireStrictUtrFormat: true,
+        preventDuplicateUtr: true,
+      };
+      userProfilesMap.set(newMerchId, newUserProf);
+
+      currentUser = {
+        id: newMerchant.id,
+        name: newMerchant.ownerName,
+        email: newMerchant.email,
+        phone: newMerchant.phone,
+        role: "merchant",
+        businessName: newMerchant.businessName,
+        vpa: newMerchant.vpa,
+        status: newMerchant.status,
+        createdAt: newMerchant.createdAt,
+      };
+
+      return res.status(201).json({
+        success: true,
+        message: "Merchant registered successfully with instant VPA routing.",
+        user: currentUser,
+        profile: newUserProf,
+        bankAccounts: [newBankAccount],
+        token: `payindia_session_${newMerchId}`,
+      });
+    }
+
+    return res.status(400).json({ success: false, error: "Unsupported verification type." });
+  } catch (err: any) {
+    console.error("Error during OTP verification:", err);
+    return res.status(500).json({ success: false, error: err?.message || "Internal server error during verification" });
   }
 });
 
