@@ -16,13 +16,13 @@ import {
   Building,
   RefreshCw,
   Sliders,
-  Workflow,
-  Globe,
   Radio,
+  Link2,
 } from 'lucide-react';
 import { Order, MerchantProfile, WebhookLog, User, BankAccountQR, BankRoutingStrategy, SecurityEvent } from './types';
 import { safeFetch, fetchJson, api } from './utils/api';
 import { MerchantDashboard } from './components/MerchantDashboard';
+import { PaymentLinksManager } from './components/PaymentLinksManager';
 import { HostedCheckout } from './components/HostedCheckout';
 import { DeveloperApiDocs } from './components/DeveloperApiDocs';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -32,13 +32,11 @@ import { OverviewCard } from './components/OverviewCard';
 import { RedFlagsPanel } from './components/RedFlagsPanel';
 import { TechnicalStackPanel } from './components/TechnicalStackPanel';
 import { EndpointsMapPanel } from './components/EndpointsMapPanel';
-import { GatewayWorkflowSimulator } from './components/GatewayWorkflowSimulator';
-import { LiveCustomScanView } from './components/LiveCustomScanView';
 import { demotryAnalysisData } from './data/demotryAnalysis';
 
 export function App() {
   const [activeView, setActiveView] = useState<
-    'dashboard' | 'checkout' | 'admin' | 'auth' | 'docs' | 'audit' | 'workflow' | 'live_scan'
+    'dashboard' | 'payment_links' | 'checkout' | 'admin' | 'auth' | 'docs' | 'audit'
   >('dashboard');
 
   const [currentUser, setCurrentUser] = useState<User | null>({
@@ -150,6 +148,17 @@ export function App() {
       return data.order;
     }
     throw new Error(data.error || 'Failed to create order');
+  };
+
+  const handleCancelOrder = async (orderIdToCancel: string) => {
+    try {
+      await api.post(`/api/orders/${orderIdToCancel}/cancel`, {});
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderIdToCancel ? { ...o, status: 'EXPIRED' as const } : o))
+      );
+    } catch (err) {
+      console.error('Failed to cancel order', err);
+    }
   };
 
   const handleUpdateProfile = async (updated: Partial<MerchantProfile>) => {
@@ -340,24 +349,19 @@ export function App() {
               <span className="sm:hidden">Merchant</span>
             </button>
 
-            {/* Deeplink Checkout */}
+            {/* Payment Links Manager */}
             <button
-              onClick={() => {
-                if (!selectedOrder && orders.length > 0) {
-                  setSelectedOrder(orders[0]);
-                }
-                setActiveView('checkout');
-              }}
+              onClick={() => setActiveView('payment_links')}
               className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeView === 'checkout'
+                activeView === 'payment_links'
                   ? 'bg-emerald-600 text-white shadow'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="Hosted Checkout Demo (/demo)"
+              title="Payment Links & Instant UPI URLs"
             >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Checkout</span>
-              <span className="sm:hidden">Pay</span>
+              <Link2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Payment Links</span>
+              <span className="sm:hidden">Links</span>
             </button>
 
             {/* Superadmin Panel */}
@@ -419,34 +423,6 @@ export function App() {
               <span className="hidden sm:inline">Audit</span>
               <span className="sm:hidden">Audit</span>
             </button>
-
-            {/* Workflow Simulator */}
-            <button
-              onClick={() => setActiveView('workflow')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeView === 'workflow'
-                  ? 'bg-emerald-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Payment Flow Architecture"
-            >
-              <Workflow className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Flow</span>
-            </button>
-
-            {/* Live URL Scanner */}
-            <button
-              onClick={() => setActiveView('live_scan')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                activeView === 'live_scan'
-                  ? 'bg-emerald-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Live URL Inspector"
-            >
-              <Globe className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Scanner</span>
-            </button>
           </nav>
         </div>
       </header>
@@ -477,13 +453,26 @@ export function App() {
           />
         )}
 
-        {/* VIEW 2: Hosted Checkout */}
+        {/* VIEW 2: Payment Links Manager */}
+        {activeView === 'payment_links' && (
+          <PaymentLinksManager
+            orders={orders}
+            bankAccounts={bankAccounts}
+            routingStrategy={profile.routingStrategy || 'smart_round_robin'}
+            primaryVpa={profile.vpa}
+            onCreateLink={handleCreateOrder}
+            onOpenCheckout={handleOpenCheckout}
+            onCancelOrder={handleCancelOrder}
+          />
+        )}
+
+        {/* VIEW 3: Hosted Checkout (When viewing a specific payment link) */}
         {activeView === 'checkout' && selectedOrder && (
           <HostedCheckout
             order={selectedOrder}
             bankAccounts={bankAccounts}
             onPaymentSuccess={handlePaymentSuccess}
-            onBackToDashboard={() => setActiveView('dashboard')}
+            onBackToDashboard={() => setActiveView('payment_links')}
           />
         )}
 
@@ -547,16 +536,6 @@ export function App() {
               domain={demotryAnalysisData.domain}
             />
           </div>
-        )}
-
-        {/* VIEW 7: Gateway Payment Workflow Diagram */}
-        {activeView === 'workflow' && (
-          <GatewayWorkflowSimulator />
-        )}
-
-        {/* VIEW 8: Live URL Custom Scanner */}
-        {activeView === 'live_scan' && (
-          <LiveCustomScanView defaultUrl="https://demotry.shop/merchant/dashboard.php" />
         )}
       </main>
 

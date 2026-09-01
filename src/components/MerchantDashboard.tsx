@@ -159,7 +159,10 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
       });
       setShowCreateModal(false);
       setOrderId(`ORD-${Math.floor(1000 + Math.random() * 9000)}`);
-      onOpenCheckout(created);
+      // Copy created link immediately
+      if (created?.id) {
+        copyOrderLink(created.id, `${window.location.origin}/checkout/${created.id}`);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -964,9 +967,10 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
                 <button
                   type="submit"
                   disabled={isCreating}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-all shadow-md shadow-emerald-950/60 cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-all shadow-md shadow-emerald-950/60 cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
                 >
-                  {isCreating ? 'Generating...' : 'Generate & Checkout'}
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>{isCreating ? 'Generating Link...' : 'Create Payment Link'}</span>
                 </button>
               </div>
             </form>
