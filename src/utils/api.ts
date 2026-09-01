@@ -60,8 +60,10 @@ export async function safeFetch<T = any>(
   init?: RequestInit
 ): Promise<ApiResponse<T>> {
   try {
+    const token = localStorage.getItem('9tepay_session_token') || sessionStorage.getItem('9tepay_session_token');
     const headers: Record<string, string> = {
       Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers as Record<string, string> || {}),
     };
 
