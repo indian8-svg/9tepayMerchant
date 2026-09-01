@@ -7,6 +7,9 @@ import {
   Check,
   RefreshCw,
   Webhook,
+  Send,
+  AlertCircle,
+  CheckCircle,
 } from 'lucide-react';
 import { MerchantProfile } from '../types';
 import { safeFetch } from '../utils/api';
@@ -23,6 +26,60 @@ export const DeveloperApiDocs: React.FC<DeveloperApiDocsProps> = ({ profile }) =
   const [sandboxResponse, setSandboxResponse] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeEndpoint, setActiveEndpoint] = useState<'create_order' | 'get_order' | 'verify_utr' | 'cancel_order'>('create_order');
+
+  // Webhook Visual Debugger State
+  const [webhookUrl, setWebhookUrl] = useState(profile.webhookUrl || 'https://shop.example.com/api/webhook/upi-callback');
+  const [webhookEvent, setWebhookEvent] = useState<string>('payment.success');
+  const [customPayload, setCustomPayload] = useState<string>(() => {
+    return JSON.stringify({
+      event: 'payment.success',
+      order_id: `ORD-TEST-${Math.floor(1000 + Math.random() * 9000)}`,
+      amount: 1499.00,
+      currency: 'INR',
+      status: 'PAID',
+      utr: `4${Math.floor(10000000000 + Math.random() * 90000000000)}`,
+      customer: 'Test Customer',
+      timestamp: new Date().toISOString()
+    }, null, 2);
+  });
+  const [webhookResponse, setWebhookResponse] = useState<any | null>(null);
+  const [webhookLoading, setWebhookLoading] = useState(false);
+
+  const handleTestWebhook = async () => {
+    setWebhookLoading(true);
+    setWebhookResponse(null);
+    try {
+      let parsedPayload;
+      try {
+        parsedPayload = JSON.parse(customPayload);
+      } catch {
+        alert("Invalid JSON format in the custom payload field. Please verify standard JSON double-quotes.");
+        setWebhookLoading(false);
+        return;
+      }
+
+      const res = await safeFetch<any>('/api/webhooks/test-dispatch', {
+        method: 'POST',
+        body: JSON.stringify({
+          webhookUrl: webhookUrl,
+          event: webhookEvent,
+          payload: parsedPayload
+        })
+      });
+
+      if (res.data && res.data.log) {
+        setWebhookResponse(res.data.log);
+      } else if (res.error) {
+        setWebhookResponse({ error: res.error });
+      } else {
+        setWebhookResponse({ error: "No response log returned" });
+      }
+    } catch (err: any) {
+      setWebhookResponse({ error: err.message || "An unexpected error occurred." });
+    } finally {
+      setWebhookLoading(false);
+    }
+  };
 
   const getCodeSnippet = () => {
     const origin = window.location.origin;
@@ -330,6 +387,195 @@ const isValid = req.headers['x-signature-sha256'] === expected;`}
             <pre className="p-3 bg-slate-900 border border-slate-800 rounded-xl font-mono text-[11px] text-emerald-400 overflow-x-auto min-h-[140px] max-h-[220px]">
               {sandboxResponse || '// Click "Execute Live API Request" to test endpoint'}
             </pre>
+          </div>
+        </div>
+      </div>
+
+      {/* Visual Webhook Debugger Tool */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+          <div className="flex items-center gap-2">
+            <Webhook className="w-5 h-5 text-emerald-600 animate-pulse" />
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">
+                Visual Webhook Debugger &amp; Response Inspector
+              </h3>
+              <p className="text-xs text-slate-500">
+                Send a signed HTTP POST payload to your endpoint to test signature verification and verify your server's raw response.
+              </p>
+            </div>
+          </div>
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 font-mono">
+            HMAC-SHA256 Signed
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
+          {/* Debugger Controller Inputs */}
+          <div className="lg:col-span-6 space-y-4">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Target Webhook Destination URL
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={webhookUrl}
+                  onChange={(e) => setWebhookUrl(e.target.value)}
+                  placeholder="https://your-domain.com/api/webhook"
+                  className="flex-1 bg-slate-50 border border-slate-300 text-slate-900 font-mono text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Event Action
+                </label>
+                <select
+                  value={webhookEvent}
+                  onChange={(e) => {
+                    const evt = e.target.value;
+                    setWebhookEvent(evt);
+                    setCustomPayload(JSON.stringify({
+                      event: evt,
+                      order_id: `ORD-TEST-${Math.floor(1000 + Math.random() * 9000)}`,
+                      amount: 1499.00,
+                      currency: 'INR',
+                      status: evt === 'payment.success' ? 'PAID' : 'FAILED',
+                      utr: `4${Math.floor(10000000000 + Math.random() * 90000000000)}`,
+                      customer: 'Test Customer',
+                      timestamp: new Date().toISOString()
+                    }, null, 2));
+                  }}
+                  className="w-full bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-emerald-500 font-medium"
+                >
+                  <option value="payment.success">payment.success</option>
+                  <option value="payment.failed">payment.failed</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  HMAC secret key
+                </label>
+                <div className="bg-slate-100 border border-slate-200 text-slate-600 font-mono text-[11px] rounded-xl px-3 py-2.5 overflow-hidden text-ellipsis whitespace-nowrap">
+                  {profile.webhookSecret || 'whsec_default'}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                  Request Payload Body (JSON)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomPayload(JSON.stringify({
+                      event: webhookEvent,
+                      order_id: `ORD-TEST-${Math.floor(1000 + Math.random() * 9000)}`,
+                      amount: 1499.00,
+                      currency: 'INR',
+                      status: webhookEvent === 'payment.success' ? 'PAID' : 'FAILED',
+                      utr: `4${Math.floor(10000000000 + Math.random() * 90000000000)}`,
+                      customer: 'Test Customer',
+                      timestamp: new Date().toISOString()
+                    }, null, 2));
+                  }}
+                  className="text-[10px] text-emerald-600 font-semibold hover:text-emerald-700 cursor-pointer"
+                >
+                  Regenerate Mock
+                </button>
+              </div>
+              <textarea
+                value={customPayload}
+                onChange={(e) => setCustomPayload(e.target.value)}
+                rows={7}
+                className="w-full bg-slate-900 border border-slate-800 text-emerald-400 font-mono text-xs rounded-xl p-3 focus:outline-none focus:border-emerald-500 leading-relaxed"
+              />
+            </div>
+
+            <button
+              onClick={handleTestWebhook}
+              disabled={webhookLoading}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {webhookLoading ? (
+                <RefreshCw className="w-4 h-4 animate-spin text-white" />
+              ) : (
+                <Send className="w-4 h-4 text-white" />
+              )}
+              <span>Dispatch Secure Test Webhook</span>
+            </button>
+          </div>
+
+          {/* Webhook Response Inspector Output */}
+          <div className="lg:col-span-6 bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between min-h-[360px]">
+            <div className="space-y-4 w-full">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  HTTP Dispatch Response Status
+                </span>
+                {webhookResponse ? (
+                  webhookResponse.error ? (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" /> FAILED
+                    </span>
+                  ) : (
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-1 ${
+                      webhookResponse.statusCode >= 200 && webhookResponse.statusCode < 300
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    }`}>
+                      {webhookResponse.statusCode >= 200 && webhookResponse.statusCode < 300 ? (
+                        <CheckCircle className="w-3 h-3" />
+                      ) : (
+                        <AlertCircle className="w-3 h-3" />
+                      )}
+                      HTTP {webhookResponse.statusCode}
+                    </span>
+                  )
+                ) : (
+                  <span className="text-slate-400 text-xs">Waiting for dispatch...</span>
+                )}
+              </div>
+
+              {webhookResponse && !webhookResponse.error && (
+                <div className="space-y-2">
+                  <div className="bg-white p-2.5 border border-slate-200 rounded-lg text-[11px] space-y-1">
+                    <span className="font-semibold text-slate-700 block">Sent Verification Headers:</span>
+                    <div className="font-mono text-slate-600 bg-slate-50 p-1.5 rounded border border-slate-100 overflow-x-auto text-[10px] space-y-1">
+                      <div><strong className="text-slate-900">Content-Type:</strong> application/json</div>
+                      <div className="truncate"><strong className="text-slate-900">X-Signature-SHA256:</strong> {webhookResponse.payload?.utr ? 'calculated_signature_hash' : 'N/A'}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5 w-full">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+                  Raw Server Response Payload / Body
+                </span>
+                <pre className="p-3 bg-slate-900 border border-slate-800 rounded-xl font-mono text-[11px] text-emerald-400 overflow-x-auto min-h-[160px] max-h-[220px] w-full">
+                  {webhookResponse ? (
+                    webhookResponse.error ? (
+                      `Error: ${webhookResponse.error}`
+                    ) : (
+                      webhookResponse.response || '// Server returned an empty response body.'
+                    )
+                  ) : (
+                    '// Click "Dispatch Secure Test Webhook" to execute live post request.'
+                  )}
+                </pre>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-200 text-[10px] text-slate-500 mt-3">
+              💡 <strong className="text-slate-700">Quick Tip:</strong> Make sure your webhook listener returns an HTTP 200 status code to let the gateway know the callback has been processed successfully.
+            </div>
           </div>
         </div>
       </div>

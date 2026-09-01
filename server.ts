@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import helmet from "helmet";
 
 declare global {
   namespace Express {
@@ -221,6 +222,14 @@ function injectionGuard(req: any, res: any, next: any) {
 }
 
 // Global Middlewares setup
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    frameguard: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: false,
+  })
+);
 app.use(globalRateLimiter);
 app.use(injectionGuard);
 
@@ -1614,35 +1623,82 @@ app.get("/api/webhooks/logs", requireAuth, (req, res) => {
 });
 
 // Test Webhook Dispatch
-app.post("/api/webhooks/test-dispatch", requireAuth, (req, res) => {
-  const { webhookUrl, event } = req.body;
-  const userProf = getProfileForUser(req.user.id);
-  const targetUrl = webhookUrl || userProf.webhookUrl || "https://shop.example.com/api/webhook/upi-callback";
+app.post("/api/webhooks/test-dispatch", requireAuth, async (req, res) => {
+  try {
+    const { webhookUrl, event, payload } = req.body;
+    const userProf = getProfileForUser(req.user.id);
+    const targetUrl = webhookUrl || userProf.webhookUrl || "https://shop.example.com/api/webhook/upi-callback";
 
-  const mockPayload = {
-    event: event || "payment.success",
-    order_id: `ORD-TEST-${Math.floor(1000 + Math.random() * 9000)}`,
-    amount: 1499.0,
-    currency: "INR",
-    status: "PAID",
-    utr: `4${Math.floor(10000000000 + Math.random() * 90000000000)}`,
-    customer: "Test Customer",
-    timestamp: new Date().toISOString(),
-  };
+    const mockPayload = payload || {
+      event: event || "payment.success",
+      order_id: `ORD-TEST-${Math.floor(1000 + Math.random() * 9000)}`,
+      amount: 1499.0,
+      currency: "INR",
+      status: "PAID",
+      utr: `4${Math.floor(10000000000 + Math.random() * 90000000000)}`,
+      customer: "Test Customer",
+      timestamp: new Date().toISOString(),
+    };
 
-  const newLog = {
-    id: `wh_log_test_${Date.now().toString().slice(-6)}`,
-    orderId: "ord_test_sample",
-    timestamp: new Date().toISOString(),
-    status: "DELIVERED",
-    url: targetUrl,
-    statusCode: 200,
-    payload: mockPayload,
-    response: '{"status":"OK","signature_verified":true}',
-  };
+    const payloadString = JSON.stringify(mockPayload);
+    
+    const crypto = require("crypto");
+    const signature = crypto
+      .createHmac("sha256", userProf.webhookSecret || "whsec_default")
+      .update(payloadString)
+      .digest("hex");
 
-  getWebhookLogsForUser(req.user.id).unshift(newLog);
-  res.json({ success: true, log: newLog });
+    let statusCode = 200;
+    let rawResponse = "";
+    let dispatchStatus = "DELIVERED";
+
+    try {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), 6000); // 6s timeout
+
+      const fetchRes = await fetch(targetUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Signature-SHA256": signature,
+          "User-Agent": "9tepay-Webhook-Bot/2.4",
+        },
+        body: payloadString,
+        signal: controller.signal,
+      });
+      clearTimeout(id);
+
+      statusCode = fetchRes.status;
+      rawResponse = await fetchRes.text();
+      if (!fetchRes.ok) {
+        dispatchStatus = "FAILED";
+      }
+    } catch (err: any) {
+      statusCode = 504;
+      dispatchStatus = "FAILED";
+      rawResponse = `Webhook request failed or timed out: ${err.message || err}`;
+    }
+
+    if (rawResponse.length > 5000) {
+      rawResponse = rawResponse.substring(0, 5000) + "... (truncated)";
+    }
+
+    const newLog = {
+      id: `wh_log_test_${Date.now().toString().slice(-6)}`,
+      orderId: "ord_test_sample",
+      timestamp: new Date().toISOString(),
+      status: dispatchStatus,
+      url: targetUrl,
+      statusCode: statusCode,
+      payload: mockPayload,
+      response: rawResponse || '{"status":"OK","received":true}',
+    };
+
+    getWebhookLogsForUser(req.user.id).unshift(newLog);
+    res.json({ success: true, log: newLog });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to dispatch webhook" });
+  }
 });
 
 // URL Inspector API (for case study / audit)
