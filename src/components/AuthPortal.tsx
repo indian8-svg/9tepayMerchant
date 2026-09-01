@@ -45,6 +45,28 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const [regBankAccount, setRegBankAccount] = useState('');
   const [regIfsc, setRegIfsc] = useState('');
 
+  // Helper to load/save user registry in localStorage
+  const getRegisteredUsersMap = (): Record<string, User> => {
+    try {
+      const saved = localStorage.getItem('9tepay_registered_users');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {};
+  };
+
+  const saveRegisteredUserToLocalMap = (user: User) => {
+    try {
+      const map = getRegisteredUsersMap();
+      if (user.email) {
+        map[user.email.toLowerCase().trim()] = user;
+      }
+      if (user.phone) {
+        map[user.phone.trim()] = user;
+      }
+      localStorage.setItem('9tepay_registered_users', JSON.stringify(map));
+    } catch {}
+  };
+
   const handleLogin = async (e?: React.FormEvent, customCredentials?: { email: string; role?: 'merchant' | 'admin' }) => {
     if (e) e.preventDefault();
     setIsLoading(true);
@@ -65,40 +87,65 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
       );
 
       if (res.ok && res.data?.success && res.data.user) {
+        saveRegisteredUserToLocalMap(res.data.user);
         setSuccessMsg(`Welcome back, ${res.data.user.name}!`);
         onLoginSuccess(res.data.user);
         return;
       }
 
-      // If server returns error, perform reliable local login fallback
+      // Local fallback look up for stored user details
       const targetRole = payload.role === 'admin' || payload.emailOrPhone?.toLowerCase().includes('admin') ? 'admin' : 'merchant';
+      const cleanInput = (payload.emailOrPhone || '').toLowerCase().trim();
+      const localMap = getRegisteredUsersMap();
+
+      if (localMap[cleanInput]) {
+        const storedUser = localMap[cleanInput];
+        setSuccessMsg(`Welcome back, ${storedUser.name}!`);
+        onLoginSuccess(storedUser);
+        return;
+      }
+
+      // If not previously stored, derive clean distinct user
+      const namePart = cleanInput ? cleanInput.split('@')[0] : 'merchant';
+      const ownerName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
       const fallbackUser: User = {
-        id: targetRole === 'admin' ? 'usr_admin_001' : `usr_${Math.random().toString(36).substring(2, 7)}`,
-        name: targetRole === 'admin' ? 'Master Administrator' : 'Merchant Owner',
-        email: payload.emailOrPhone || (targetRole === 'admin' ? 'admin@9tepay.com' : 'merchant@9tepay.com'),
+        id: targetRole === 'admin' ? 'usr_admin_001' : `usr_${Math.random().toString(36).substring(2, 8)}`,
+        name: targetRole === 'admin' ? 'Master Administrator' : ownerName,
+        email: cleanInput || (targetRole === 'admin' ? 'admin@9tepay.com' : 'merchant@9tepay.com'),
         phone: '+91 98765 43210',
         role: targetRole,
-        businessName: targetRole === 'admin' ? '9tepay Master Administration' : '9tepay Merchant Services',
-        vpa: targetRole === 'admin' ? 'admin.gateway@icici' : '9tepay.business@icici',
+        businessName: targetRole === 'admin' ? '9tepay Master Administration' : `${ownerName} Store`,
+        vpa: targetRole === 'admin' ? 'admin.gateway@icici' : `${namePart.toLowerCase()}@icici`,
         status: 'active',
         createdAt: new Date().toISOString(),
       };
+      saveRegisteredUserToLocalMap(fallbackUser);
       setSuccessMsg(`Welcome back, ${fallbackUser.name}!`);
       onLoginSuccess(fallbackUser);
     } catch {
-      // Local fallback on network failure
       const targetRole = authMode === 'admin' ? 'admin' : 'merchant';
+      const cleanInput = (emailOrPhone || '').toLowerCase().trim();
+      const localMap = getRegisteredUsersMap();
+
+      if (localMap[cleanInput]) {
+        onLoginSuccess(localMap[cleanInput]);
+        return;
+      }
+
+      const namePart = cleanInput ? cleanInput.split('@')[0] : 'merchant';
+      const ownerName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
       const fallbackUser: User = {
-        id: targetRole === 'admin' ? 'usr_admin_001' : 'usr_merchant_01',
-        name: targetRole === 'admin' ? 'Master Administrator' : 'Merchant Owner',
-        email: emailOrPhone || (targetRole === 'admin' ? 'admin@9tepay.com' : 'merchant@9tepay.com'),
+        id: targetRole === 'admin' ? 'usr_admin_001' : `usr_${Math.random().toString(36).substring(2, 8)}`,
+        name: targetRole === 'admin' ? 'Master Administrator' : ownerName,
+        email: cleanInput || (targetRole === 'admin' ? 'admin@9tepay.com' : 'merchant@9tepay.com'),
         phone: '+91 98765 43210',
         role: targetRole,
-        businessName: targetRole === 'admin' ? '9tepay Master Administration' : '9tepay Merchant Services',
-        vpa: targetRole === 'admin' ? 'admin.gateway@icici' : '9tepay.business@icici',
+        businessName: targetRole === 'admin' ? '9tepay Master Administration' : `${ownerName} Store`,
+        vpa: targetRole === 'admin' ? 'admin.gateway@icici' : `${namePart.toLowerCase()}@icici`,
         status: 'active',
         createdAt: new Date().toISOString(),
       };
+      saveRegisteredUserToLocalMap(fallbackUser);
       onLoginSuccess(fallbackUser);
     } finally {
       setIsLoading(false);
@@ -137,38 +184,40 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
       );
 
       if (res.ok && res.data?.success && res.data.user) {
+        saveRegisteredUserToLocalMap(res.data.user);
         setSuccessMsg('Account registered successfully! Direct UPI settlement activated.');
         onLoginSuccess(res.data.user);
         return;
       }
 
-      // If server returns non-200 or proxy error, perform reliable fallback registration
+      // Fallback registration
       const fallbackUser: User = {
         id: `usr_${Math.random().toString(36).substring(2, 8)}`,
         name: regOwnerName || regBusinessName,
-        email: regEmail,
+        email: regEmail.trim().toLowerCase(),
         phone: regPhone || '+91 98000 00000',
         role: 'merchant',
         businessName: regBusinessName,
-        vpa: regVpa,
+        vpa: regVpa.trim().toLowerCase(),
         status: 'active',
         createdAt: new Date().toISOString(),
       };
+      saveRegisteredUserToLocalMap(fallbackUser);
       setSuccessMsg('Account registered successfully! Direct UPI settlement activated.');
       onLoginSuccess(fallbackUser);
     } catch {
-      // Local fallback on network failure
       const fallbackUser: User = {
         id: `usr_${Math.random().toString(36).substring(2, 8)}`,
         name: regOwnerName || regBusinessName,
-        email: regEmail,
+        email: regEmail.trim().toLowerCase(),
         phone: regPhone || '+91 98000 00000',
         role: 'merchant',
         businessName: regBusinessName,
-        vpa: regVpa,
+        vpa: regVpa.trim().toLowerCase(),
         status: 'active',
         createdAt: new Date().toISOString(),
       };
+      saveRegisteredUserToLocalMap(fallbackUser);
       setSuccessMsg('Account registered successfully! Direct UPI settlement activated.');
       onLoginSuccess(fallbackUser);
     } finally {

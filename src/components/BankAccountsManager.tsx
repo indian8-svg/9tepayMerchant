@@ -306,18 +306,18 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
       )}
 
       {/* Top Banner & KPI bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-white tracking-tight">
-              Bank Accounts & QR Standee Fleet
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+              Bank Accounts &amp; QR Standee Fleet
             </h2>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
               Multi-VPA Active ({activeCount}/{bankAccounts.length})
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Connect any Indian bank (Public, Private, Payments & SFB), upload custom QR soundboxes or standees, and distribute payment traffic.
+          <p className="text-xs text-slate-600 mt-1">
+            Connect any Indian bank (Public, Private, Payments &amp; SFB), upload custom QR soundboxes or standees, and distribute payment traffic.
           </p>
         </div>
 
@@ -325,90 +325,90 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
           <button
             id="btn-add-bank-modal"
             onClick={handleOpenNewBankModal}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-all shadow-md hover:shadow-emerald-600/20 active:scale-95 cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Bank & QR</span>
+            <span>Add Bank &amp; QR</span>
           </button>
         </div>
       </div>
 
       {/* Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4.5 shadow-xs">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium">Active Bank VPAs</span>
-            <Building2 className="w-4 h-4 text-emerald-400" />
+            <Building2 className="w-4 h-4 text-emerald-600" />
           </div>
-          <div className="text-2xl font-bold text-white">
+          <div className="text-2xl font-bold text-slate-900">
             {activeCount} / {bankAccounts.length}
           </div>
-          <p className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
+          <p className="text-[11px] text-emerald-700 mt-1 flex items-center gap-1 font-medium">
             <CheckCircle2 className="w-3 h-3" /> Ready for dynamic instant checkout
           </p>
         </div>
 
-        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4.5 shadow-xs">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium">Custom Uploaded QRs</span>
-            <QrCode className="w-4 h-4 text-cyan-400" />
+            <QrCode className="w-4 h-4 text-cyan-600" />
           </div>
-          <div className="text-2xl font-bold text-white">
+          <div className="text-2xl font-bold text-slate-900">
             {bankAccounts.filter((b) => b.customQrImage).length} / {bankAccounts.length}
           </div>
-          <p className="text-[11px] text-cyan-400 mt-1">
-            Soundbox & standee image stickers
+          <p className="text-[11px] text-cyan-700 mt-1 font-medium">
+            Soundbox &amp; standee image stickers
           </p>
         </div>
 
-        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4.5 shadow-xs">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium">Total Lifetime Settled</span>
-            <Sparkles className="w-4 h-4 text-amber-400" />
+            <Sparkles className="w-4 h-4 text-amber-600" />
           </div>
-          <div className="text-2xl font-bold text-white">
+          <div className="text-2xl font-bold text-slate-900">
             ₹{totalSettledOverall.toLocaleString('en-IN')}
           </div>
-          <p className="text-[11px] text-amber-400 mt-1">
+          <p className="text-[11px] text-amber-700 mt-1 font-medium">
             Direct to merchant bank accounts
           </p>
         </div>
 
-        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4.5 shadow-xs">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium">Traffic Routing Engine</span>
-            <Sliders className="w-4 h-4 text-indigo-400" />
+            <Sliders className="w-4 h-4 text-blue-600" />
           </div>
-          <div className="text-sm font-semibold text-white capitalize">
+          <div className="text-sm font-semibold text-slate-900 capitalize">
             {routingStrategy === 'smart_round_robin'
               ? 'Smart Round-Robin'
               : routingStrategy === 'limit_aware'
               ? 'Capacity-Aware'
               : 'Primary Only'}
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Anti-Fraud Shield: <span className="text-emerald-400 font-medium">Active</span>
+          <p className="text-[11px] text-slate-500 mt-1">
+            Anti-Fraud Shield: <span className="text-emerald-600 font-bold">Active</span>
           </p>
         </div>
       </div>
 
       {/* Smart Routing & Anti-Fraud Config Panel */}
-      <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div>
-            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Sliders className="w-4 h-4 text-emerald-400" />
-              Multi-Bank Traffic Routing & Security Rules
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Sliders className="w-4 h-4 text-emerald-600" />
+              Multi-Bank Traffic Routing &amp; Security Rules
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-600 mt-0.5">
               Control how customer checkouts are distributed across your multiple bank accounts and enable automated protections.
             </p>
           </div>
           <button
             onClick={handleSaveRoutingSettings}
-            className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium border border-slate-700 transition-colors flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold border border-slate-200 transition-colors flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
           >
-            <Check className="w-3.5 h-3.5 text-emerald-400" />
+            <Check className="w-3.5 h-3.5 text-emerald-600" />
             <span>Save Rules</span>
           </button>
         </div>
@@ -416,63 +416,63 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
           {/* Strategy selector */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-slate-300">Routing Algorithm</label>
+            <label className="text-xs font-semibold text-slate-700">Routing Algorithm</label>
             <select
               value={selectedStrategy}
               onChange={(e) => setSelectedStrategy(e.target.value as BankRoutingStrategy)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+              className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500 shadow-2xs"
             >
               <option value="smart_round_robin">Smart Weighted Round-Robin (Balanced)</option>
               <option value="primary_only">Primary Account Only (Direct)</option>
               <option value="limit_aware">Daily Capacity-Aware (Avoid Limit Breaches)</option>
               <option value="manual">Manual Selection Per Order / Checkout</option>
             </select>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px] text-slate-500">
               Distributes payment traffic proportionally to assigned bank weights.
             </p>
           </div>
 
           {/* Duplicate UTR Guard */}
-          <div className="flex items-start gap-3 p-3 bg-slate-950/60 border border-slate-800 rounded-lg">
+          <div className="flex items-start gap-3 p-3 bg-slate-50/80 border border-slate-200 rounded-xl">
             <input
               type="checkbox"
               id="chk-prevent-dup"
               checked={preventDupSetting}
               onChange={(e) => setPreventDupSetting(e.target.checked)}
-              className="mt-0.5 rounded border-slate-700 text-emerald-600 focus:ring-emerald-500 bg-slate-900"
+              className="mt-0.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 bg-white"
             />
             <div>
               <label
                 htmlFor="chk-prevent-dup"
-                className="text-xs font-medium text-white cursor-pointer flex items-center gap-1"
+                className="text-xs font-semibold text-slate-900 cursor-pointer flex items-center gap-1"
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                 Anti-Fraud Duplicate UTR Shield
               </label>
-              <p className="text-[11px] text-slate-400 mt-0.5">
+              <p className="text-[11px] text-slate-600 mt-0.5">
                 Automatically blocks recycled 12-digit UTR references across all orders.
               </p>
             </div>
           </div>
 
           {/* Strict 12-digit NPCI format */}
-          <div className="flex items-start gap-3 p-3 bg-slate-950/60 border border-slate-800 rounded-lg">
+          <div className="flex items-start gap-3 p-3 bg-slate-50/80 border border-slate-200 rounded-xl">
             <input
               type="checkbox"
               id="chk-strict-utr"
               checked={strictUtrSetting}
               onChange={(e) => setStrictUtrSetting(e.target.checked)}
-              className="mt-0.5 rounded border-slate-700 text-emerald-600 focus:ring-emerald-500 bg-slate-900"
+              className="mt-0.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 bg-white"
             />
             <div>
               <label
                 htmlFor="chk-strict-utr"
-                className="text-xs font-medium text-white cursor-pointer flex items-center gap-1"
+                className="text-xs font-semibold text-slate-900 cursor-pointer flex items-center gap-1"
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+                <ShieldCheck className="w-3.5 h-3.5 text-cyan-600" />
                 Strict NPCI 12-Digit Validator
               </label>
-              <p className="text-[11px] text-slate-400 mt-0.5">
+              <p className="text-[11px] text-slate-600 mt-0.5">
                 Rejects fake or truncated UTR strings before triggering merchant webhooks.
               </p>
             </div>
@@ -483,11 +483,11 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
       {/* Bank Accounts Grid */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-emerald-400" />
-            Configured Bank Accounts & QR Profiles ({bankAccounts.length})
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-emerald-600" />
+            Configured Bank Accounts &amp; QR Profiles ({bankAccounts.length})
           </h3>
-          <span className="text-xs text-slate-400">Click any card to preview standee QR</span>
+          <span className="text-xs text-slate-500">Click any card to preview standee QR</span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -505,19 +505,19 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
               <div
                 key={bank.id}
                 id={`bank-card-${bank.id}`}
-                className={`relative bg-slate-900/80 border transition-all rounded-xl p-5 shadow-sm ${
+                className={`relative bg-white border transition-all rounded-2xl p-5 shadow-sm ${
                   bank.isPrimary
-                    ? 'border-emerald-500/40 bg-gradient-to-b from-slate-900 to-slate-900/90 ring-1 ring-emerald-500/20'
+                    ? 'border-emerald-500/60 ring-1 ring-emerald-500/20 bg-emerald-50/20'
                     : bank.isActive
-                    ? 'border-slate-800 hover:border-slate-700'
-                    : 'border-slate-800/60 opacity-60 bg-slate-950/40'
+                    ? 'border-slate-200 hover:border-slate-300'
+                    : 'border-slate-200 opacity-60 bg-slate-50/50'
                 }`}
               >
                 {/* Header row */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-inner text-sm relative overflow-hidden"
+                      className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-xs text-sm relative overflow-hidden shrink-0"
                       style={{ backgroundColor: bank.qrColor || '#10b981' }}
                     >
                       {bank.customQrImage ? (
@@ -532,24 +532,24 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                     </div>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="font-semibold text-white text-base">{bank.bankName}</h4>
+                        <h4 className="font-bold text-slate-900 text-base">{bank.bankName}</h4>
                         {bank.isPrimary && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                            <Star className="w-3 h-3 fill-emerald-400" /> Primary
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <Star className="w-3 h-3 fill-emerald-600 text-emerald-600" /> Primary
                           </span>
                         )}
                         {bank.customQrImage && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">
                             <Upload className="w-3 h-3" /> Custom QR
                           </span>
                         )}
                         {!bank.isActive && (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-800 text-slate-400 border border-slate-700">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
                             Inactive
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-400">{bank.qrTitle}</p>
+                      <p className="text-xs text-slate-500">{bank.qrTitle}</p>
                     </div>
                   </div>
 
@@ -557,35 +557,35 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => handleOpenEditBank(bank)}
-                      className="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 hover:text-white transition-colors text-xs font-medium cursor-pointer"
+                      className="p-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-slate-700 transition-colors text-xs font-medium cursor-pointer"
                       title="Edit Bank & Upload Custom QR"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => setShowQrModal(bank)}
-                      className="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-emerald-400 hover:text-emerald-300 transition-colors group flex items-center gap-1 text-xs font-medium cursor-pointer"
+                      className="p-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-emerald-700 transition-colors group flex items-center gap-1 text-xs font-semibold cursor-pointer"
                       title="View & Test Standee QR"
                     >
-                      <QrCode className="w-4 h-4" />
+                      <QrCode className="w-4 h-4 text-emerald-600" />
                       <span className="hidden sm:inline">Standee</span>
                     </button>
                   </div>
                 </div>
 
                 {/* VPA & Account details */}
-                <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2.5">
+                <div className="mt-4 pt-3 border-t border-slate-100 space-y-2.5">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400">UPI VPA:</span>
-                    <div className="flex items-center gap-1.5 font-mono text-emerald-400 font-medium">
+                    <span className="text-slate-500">UPI VPA:</span>
+                    <div className="flex items-center gap-1.5 font-mono text-emerald-700 font-bold">
                       <span>{bank.vpa}</span>
                       <button
                         onClick={() => handleCopy(bank.vpa, `vpa-${bank.id}`)}
-                        className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+                        className="text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
                         title="Copy VPA"
                       >
                         {copiedId === `vpa-${bank.id}` ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
                         ) : (
                           <Copy className="w-3.5 h-3.5" />
                         )}
@@ -594,12 +594,12 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                   </div>
 
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400">Account No:</span>
-                    <div className="flex items-center gap-1.5 font-mono text-slate-200">
+                    <span className="text-slate-500">Account No:</span>
+                    <div className="flex items-center gap-1.5 font-mono text-slate-800 font-semibold">
                       <span>{maskedAccount}</span>
                       <button
                         onClick={() => toggleRevealAccount(bank.id)}
-                        className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+                        className="text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
                         title={isRevealed ? 'Hide account number' : 'Show account number'}
                       >
                         {isRevealed ? (
@@ -612,22 +612,22 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                   </div>
 
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400">IFSC & Beneficiary:</span>
-                    <span className="font-mono text-slate-300">
+                    <span className="text-slate-500">IFSC &amp; Beneficiary:</span>
+                    <span className="font-mono text-slate-700">
                       {bank.ifsc} • {bank.accountHolder}
                     </span>
                   </div>
 
                   {/* Daily volume progress bar */}
                   <div className="pt-2">
-                    <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
                       <span>Daily Capacity Utilization:</span>
-                      <span className="font-mono text-slate-200">
+                      <span className="font-mono text-slate-800 font-semibold">
                         ₹{(bank.dailyVolume || 0).toLocaleString('en-IN')} / ₹
                         {(bank.dailyLimit || 500000).toLocaleString('en-IN')} ({usagePercent}%)
                       </span>
                     </div>
-                    <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                       <div
                         className={`h-full transition-all duration-500 rounded-full ${
                           usagePercent > 85
@@ -643,12 +643,12 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                 </div>
 
                 {/* Footer Controls */}
-                <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2 text-xs">
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2">
                     {!bank.isPrimary && (
                       <button
                         onClick={() => onSetPrimary(bank.id)}
-                        className="text-slate-400 hover:text-emerald-400 transition-colors flex items-center gap-1 text-[11px] font-medium cursor-pointer"
+                        className="text-slate-600 hover:text-emerald-700 transition-colors flex items-center gap-1 text-[11px] font-semibold cursor-pointer"
                       >
                         <Star className="w-3 h-3" />
                         <span>Make Primary</span>
@@ -656,10 +656,10 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                     )}
                     <button
                       onClick={() => onToggleActive(bank.id)}
-                      className={`text-[11px] font-medium transition-colors cursor-pointer ${
+                      className={`text-[11px] font-semibold transition-colors cursor-pointer ${
                         bank.isActive
-                          ? 'text-slate-400 hover:text-amber-400'
-                          : 'text-emerald-400 hover:text-emerald-300'
+                          ? 'text-slate-500 hover:text-amber-600'
+                          : 'text-emerald-600 hover:text-emerald-700'
                       }`}
                     >
                       {bank.isActive ? 'Deactivate' : 'Activate'}
@@ -669,7 +669,7 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setShowQrModal(bank)}
-                      className="text-slate-400 hover:text-white transition-colors p-1 cursor-pointer"
+                      className="text-slate-500 hover:text-slate-800 transition-colors p-1 cursor-pointer"
                       title="Download Standee QR"
                     >
                       <Download className="w-4 h-4" />
@@ -677,7 +677,7 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                     {bankAccounts.length > 1 && (
                       <button
                         onClick={() => onDeleteBank(bank.id)}
-                        className="text-slate-500 hover:text-rose-400 transition-colors p-1 cursor-pointer"
+                        className="text-slate-400 hover:text-rose-600 transition-colors p-1 cursor-pointer"
                         title="Delete Bank Account"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -693,15 +693,15 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
 
       {/* Add / Edit Bank Account & Upload QR Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl">
-            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-emerald-600" />
                   {editingBankId ? 'Edit Bank Account & QR' : 'Add Bank Account & UPI QR Code'}
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-600 mt-0.5">
                   Select from any Indian bank, enter settlement details, and upload or generate QR codes.
                 </p>
               </div>
@@ -710,7 +710,7 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                   setShowAddModal(false);
                   setEditingBankId(null);
                 }}
-                className="text-slate-400 hover:text-white text-lg p-1 cursor-pointer"
+                className="text-slate-400 hover:text-slate-700 text-lg p-1 cursor-pointer"
               >
                 ✕
               </button>
@@ -721,8 +721,8 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
               className="p-6 space-y-5 max-h-[80vh] overflow-y-auto"
             >
               {formError && (
-                <div className="p-3 rounded-lg bg-rose-950/40 border border-rose-800/50 text-rose-300 text-xs flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2 font-medium">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0 text-rose-600" />
                   <span>{formError}</span>
                 </div>
               )}
@@ -730,14 +730,14 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
               {/* All Banks Selector Bar */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-emerald-600" />
                     Indian Bank Directory ({ALL_INDIAN_BANKS.length} Banks)
                   </label>
                   <button
                     type="button"
                     onClick={() => setShowAllBanksPicker(!showAllBanksPicker)}
-                    className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 cursor-pointer"
+                    className="text-xs text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 cursor-pointer"
                   >
                     <Search className="w-3 h-3" />
                     <span>{showAllBanksPicker ? 'Hide Bank Directory' : 'Browse All Banks'}</span>
@@ -751,10 +751,10 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                       type="button"
                       key={b.name}
                       onClick={() => handleSelectBankPreset(b)}
-                      className={`p-2 rounded-lg border text-left text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                      className={`p-2 rounded-xl border text-left text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
                         bankName === b.name
-                          ? 'border-emerald-500 bg-emerald-950/40 text-white shadow-sm'
-                          : 'border-slate-800 bg-slate-950/60 text-slate-300 hover:border-slate-700'
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-900 shadow-2xs font-semibold'
+                          : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-slate-100'
                       }`}
                     >
                       <span
@@ -768,16 +768,16 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
 
                 {/* Expanded Full Bank Browser & Search Dropdown */}
                 {showAllBanksPicker && (
-                  <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-3 mt-2 animate-fade-in">
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3 mt-2 animate-fade-in">
                     <div className="flex items-center gap-2">
                       <div className="relative flex-1">
-                        <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                         <input
                           type="text"
                           value={bankSearchQuery}
                           onChange={(e) => setBankSearchQuery(e.target.value)}
                           placeholder="Search bank name, shortcode, or IFSC (e.g. SBI, HDFC, Canara, AU)..."
-                          className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                          className="w-full bg-white border border-slate-300 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500"
                         />
                       </div>
                     </div>
@@ -792,7 +792,7 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                           className={`px-2.5 py-1 rounded-full whitespace-nowrap font-medium transition-colors cursor-pointer ${
                             selectedBankCategory === cat.key
                               ? 'bg-emerald-600 text-white font-semibold'
-                              : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                              : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
                           }`}
                         >
                           {cat.label}
@@ -809,8 +809,8 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                           onClick={() => handleSelectBankPreset(b)}
                           className={`p-2 rounded-lg border text-left text-xs transition-all flex flex-col gap-0.5 cursor-pointer ${
                             bankName === b.name
-                              ? 'border-emerald-500 bg-emerald-950/40 text-white font-semibold'
-                              : 'border-slate-800 bg-slate-900/60 text-slate-300 hover:border-slate-700 hover:bg-slate-900'
+                              ? 'border-emerald-500 bg-emerald-50 text-emerald-900 font-bold'
+                              : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
                           }`}
                         >
                           <div className="flex items-center gap-1.5">
@@ -818,11 +818,11 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                               className="w-2 h-2 rounded-full"
                               style={{ backgroundColor: b.color }}
                             />
-                            <span className="font-medium truncate text-white">{b.name}</span>
+                            <span className="font-semibold truncate text-slate-900">{b.name}</span>
                           </div>
-                          <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
                             <span>{b.ifscPrefix}***</span>
-                            <span className="text-emerald-400">{b.defaultVpaDomain}</span>
+                            <span className="text-emerald-700">{b.defaultVpaDomain}</span>
                           </div>
                         </button>
                       ))}
@@ -834,67 +834,67 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
               {/* Form Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-slate-300">Bank Name</label>
+                  <label className="text-xs font-semibold text-slate-700">Bank Name</label>
                   <input
                     type="text"
                     required
                     value={bankName}
                     onChange={(e) => setBankName(e.target.value)}
                     placeholder="e.g. ICICI Bank"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-slate-300">Account Holder Name</label>
+                  <label className="text-xs font-semibold text-slate-700">Account Holder Name</label>
                   <input
                     type="text"
                     required
                     value={accountHolder}
                     onChange={(e) => setAccountHolder(e.target.value)}
                     placeholder="e.g. Lolapay Merchant Services"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-slate-300">Account Number</label>
+                  <label className="text-xs font-semibold text-slate-700">Account Number</label>
                   <input
                     type="password"
                     required
                     value={accountNumber}
                     onChange={(e) => setAccountNumber(e.target.value)}
                     placeholder="e.g. 919876543210"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500 font-mono"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-slate-300">Confirm Account Number</label>
+                  <label className="text-xs font-semibold text-slate-700">Confirm Account Number</label>
                   <input
                     type="text"
                     required
                     value={confirmAccountNumber}
                     onChange={(e) => setConfirmAccountNumber(e.target.value)}
                     placeholder="Re-enter account number"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500 font-mono"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-slate-300">IFSC Code</label>
+                  <label className="text-xs font-semibold text-slate-700">IFSC Code</label>
                   <input
                     type="text"
                     required
                     value={ifsc}
                     onChange={(e) => setIfsc(e.target.value.toUpperCase())}
                     placeholder="e.g. ICIC0000102"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500 font-mono"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-slate-300">
+                  <label className="text-xs font-semibold text-slate-700">
                     UPI VPA (Virtual Payment Address)
                   </label>
                   <input
@@ -903,28 +903,28 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                     value={vpa}
                     onChange={(e) => setVpa(e.target.value.toLowerCase())}
                     placeholder="e.g. lolapay.retail@icici"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-emerald-400 focus:outline-none focus:border-emerald-500 font-mono"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-emerald-700 font-bold focus:outline-none focus:border-blue-500 font-mono"
                   />
                 </div>
               </div>
 
               {/* QR Code Configuration & Upload Box */}
-              <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl space-y-4">
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-semibold text-white flex items-center gap-1.5">
-                    <QrCode className="w-3.5 h-3.5 text-emerald-400" />
-                    QR Standee & Image Configuration
+                  <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <QrCode className="w-3.5 h-3.5 text-emerald-600" />
+                    QR Standee &amp; Image Configuration
                   </h4>
 
                   {/* Mode switch pills */}
-                  <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800 text-[11px]">
+                  <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-200 text-[11px]">
                     <button
                       type="button"
                       onClick={() => setQrUploadMode('generate')}
-                      className={`px-2.5 py-1 rounded font-medium transition-colors cursor-pointer ${
+                      className={`px-2.5 py-1 rounded font-semibold transition-colors cursor-pointer ${
                         qrUploadMode === 'generate'
                           ? 'bg-emerald-600 text-white'
-                          : 'text-slate-400 hover:text-white'
+                          : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
                       Dynamic Vector QR
@@ -932,10 +932,10 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                     <button
                       type="button"
                       onClick={() => setQrUploadMode('upload')}
-                      className={`px-2.5 py-1 rounded font-medium transition-colors flex items-center gap-1 cursor-pointer ${
+                      className={`px-2.5 py-1 rounded font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
                         qrUploadMode === 'upload'
                           ? 'bg-emerald-600 text-white'
-                          : 'text-slate-400 hover:text-white'
+                          : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
                       <Upload className="w-3 h-3" />
@@ -956,19 +956,19 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                     />
 
                     {customQrImage ? (
-                      <div className="p-3 bg-slate-900 border border-emerald-500/40 rounded-xl flex items-center justify-between gap-4">
+                      <div className="p-3 bg-white border border-emerald-300 rounded-xl flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
                           <img
                             src={customQrImage}
                             alt="Uploaded QR Preview"
-                            className="w-16 h-16 object-contain bg-white rounded-lg p-1 border border-slate-700"
+                            className="w-16 h-16 object-contain bg-white rounded-lg p-1 border border-slate-200"
                           />
                           <div>
-                            <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-semibold">
+                            <div className="flex items-center gap-1.5 text-emerald-700 text-xs font-bold">
                               <CheckCircle2 className="w-3.5 h-3.5" />
                               <span>Custom QR Code Attached</span>
                             </div>
-                            <p className="text-[11px] text-slate-400 truncate max-w-xs mt-0.5">
+                            <p className="text-[11px] text-slate-500 truncate max-w-xs mt-0.5">
                               {customQrFileName || 'Custom merchant QR image'}
                             </p>
                           </div>
@@ -978,14 +978,14 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                           <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium border border-slate-700 transition-colors cursor-pointer"
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-semibold border border-slate-200 transition-colors cursor-pointer"
                           >
                             Replace
                           </button>
                           <button
                             type="button"
                             onClick={handleRemoveUploadedQr}
-                            className="p-1.5 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
                             title="Remove QR Image"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1003,53 +1003,53 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                         onClick={() => fileInputRef.current?.click()}
                         className={`p-6 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
                           isDragging
-                            ? 'border-emerald-500 bg-emerald-950/20'
-                            : 'border-slate-700 hover:border-slate-600 bg-slate-900/60'
+                            ? 'border-emerald-500 bg-emerald-50'
+                            : 'border-slate-300 hover:border-slate-400 bg-white'
                         }`}
                       >
-                        <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-emerald-400 mb-2">
+                        <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 mb-2">
                           <Upload className="w-5 h-5" />
                         </div>
-                        <p className="text-xs font-semibold text-white">
-                          Click to upload or drag & drop QR Code image
+                        <p className="text-xs font-bold text-slate-900">
+                          Click to upload or drag &amp; drop QR Code image
                         </p>
-                        <p className="text-[11px] text-slate-400 mt-1">
+                        <p className="text-[11px] text-slate-500 mt-1">
                           Upload your Soundbox QR, counter standee sticker, or BharatPe / Paytm merchant QR (PNG, JPG, WEBP)
                         </p>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-600">
                     Auto-generates compliant NPCI UPI Intent vector QR codes on the fly with custom colors and amounts.
                   </p>
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-slate-300">QR Label / Title</label>
+                    <label className="text-xs font-semibold text-slate-700">QR Label / Title</label>
                     <input
                       type="text"
                       value={qrTitle}
                       onChange={(e) => setQrTitle(e.target.value)}
                       placeholder="e.g. VIP Counter QR"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-slate-300">Daily Limit (₹)</label>
+                    <label className="text-xs font-semibold text-slate-700">Daily Limit (₹)</label>
                     <input
                       type="number"
                       value={dailyLimit}
                       onChange={(e) => setDailyLimit(Number(e.target.value))}
                       placeholder="500000"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-slate-300">
+                    <label className="text-xs font-semibold text-slate-700">
                       Routing Weight (1-10)
                     </label>
                     <input
@@ -1059,28 +1059,28 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                       value={routingWeight}
                       onChange={(e) => setRoutingWeight(Number(e.target.value))}
                       placeholder="5"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-3">
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => {
                     setShowAddModal(false);
                     setEditingBankId(null);
                   }}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition-all shadow-md flex items-center gap-2 cursor-pointer"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
                 >
                   {isSubmitting ? (
                     <RotateCw className="w-3.5 h-3.5 animate-spin" />
@@ -1097,9 +1097,9 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
 
       {/* Interactive Standee & QR Tester Modal */}
       {showQrModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/40">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
                 <div
                   className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs"
@@ -1108,17 +1108,17 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                   {showQrModal.bankName.slice(0, 2).toUpperCase()}
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">
+                  <h3 className="text-sm font-bold text-slate-900">
                     {showQrModal.bankName} - Official UPI Standee
                   </h3>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[11px] text-slate-500">
                     {showQrModal.qrTitle} • {showQrModal.vpa}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowQrModal(null)}
-                className="text-slate-400 hover:text-white p-1 cursor-pointer"
+                className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
               >
                 ✕
               </button>
@@ -1126,24 +1126,24 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
 
             <div className="p-6 space-y-5">
               {/* Standee Frame Container */}
-              <div className="bg-white rounded-2xl p-6 text-slate-900 shadow-2xl border-4 border-slate-800 text-center relative overflow-hidden">
+              <div className="bg-white rounded-2xl p-6 text-slate-900 shadow-xl border-2 border-slate-200 text-center relative overflow-hidden">
                 {/* Header branding */}
-                <div className="flex items-center justify-between border-b pb-3 mb-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
                   <div className="text-left">
-                    <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
+                    <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                       Beneficiary Merchant
                     </span>
                     <h4 className="text-sm font-bold text-slate-900">
                       {showQrModal.accountHolder}
                     </h4>
                   </div>
-                  <div className="px-2.5 py-1 bg-slate-100 rounded-md border text-[11px] font-bold text-slate-700">
+                  <div className="px-2.5 py-1 bg-slate-100 rounded-md border border-slate-200 text-[11px] font-bold text-slate-700">
                     {showQrModal.bankName}
                   </div>
                 </div>
 
                 {/* QR Image Presentation */}
-                <div className="relative inline-block p-3 bg-slate-50 border-2 border-slate-200 rounded-2xl shadow-inner my-2">
+                <div className="relative inline-block p-3 bg-slate-50 border-2 border-slate-200 rounded-2xl shadow-xs my-2">
                   {showQrModal.customQrImage ? (
                     <img
                       src={showQrModal.customQrImage}
@@ -1177,30 +1177,30 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                   <div className="text-lg font-extrabold text-emerald-600">
                     ₹{testAmount.toFixed(2)}
                   </div>
-                  <div className="text-xs font-mono font-semibold text-slate-600 bg-slate-100 py-1 px-3 rounded-full inline-block">
+                  <div className="text-xs font-mono font-semibold text-slate-700 bg-slate-100 py-1 px-3 rounded-full inline-block">
                     {showQrModal.vpa}
                   </div>
                 </div>
 
                 {/* Supported Apps footer */}
-                <div className="mt-4 pt-3 border-t text-[11px] font-medium text-slate-500 flex items-center justify-center gap-3">
+                <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] font-semibold text-slate-500 flex items-center justify-center gap-3">
                   <span>Google Pay</span> • <span>PhonePe</span> • <span>Paytm</span> •{' '}
                   <span>BHIM</span>
                 </div>
               </div>
 
               {/* Dynamic Amount Tester */}
-              <div className="flex items-center gap-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
-                <span className="text-xs text-slate-400 whitespace-nowrap">Test Amount:</span>
+              <div className="flex items-center gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <span className="text-xs text-slate-600 font-semibold whitespace-nowrap">Test Amount:</span>
                 <div className="flex items-center gap-1.5 flex-1">
                   {[100, 500, 1500, 5000].map((amt) => (
                     <button
                       key={amt}
                       onClick={() => setTestAmount(amt)}
-                      className={`px-2.5 py-1 rounded text-xs font-medium transition-colors cursor-pointer ${
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                         testAmount === amt
-                          ? 'bg-emerald-600 text-white font-semibold'
-                          : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
                       }`}
                     >
                       ₹{amt}
@@ -1210,7 +1210,7 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                     type="number"
                     value={testAmount}
                     onChange={(e) => setTestAmount(Number(e.target.value) || 0)}
-                    className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white font-mono text-right"
+                    className="w-20 bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-900 font-mono text-right"
                   />
                 </div>
               </div>
@@ -1221,7 +1221,7 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                   onClick={() => {
                     window.print();
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold border border-slate-700 transition-colors cursor-pointer"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold border border-slate-200 transition-colors cursor-pointer"
                 >
                   <Printer className="w-4 h-4" />
                   <span>Print Standee</span>
@@ -1240,7 +1240,7 @@ export const BankAccountsManager: React.FC<BankAccountsManagerProps> = ({
                   target="_blank"
                   rel="noreferrer"
                   download={`upi-qr-${showQrModal.bankName}.png`}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold transition-all shadow-md hover:shadow-emerald-600/20 cursor-pointer"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
                 >
                   <Download className="w-4 h-4" />
                   <span>Download Standee</span>

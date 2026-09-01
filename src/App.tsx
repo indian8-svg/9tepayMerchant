@@ -11,6 +11,8 @@ import {
   QrCode,
   Link2,
   XCircle,
+  User as UserIcon,
+  Settings,
 } from 'lucide-react';
 import { Order, MerchantProfile, WebhookLog, User, BankAccountQR, BankRoutingStrategy, SecurityEvent } from './types';
 import { safeFetch, fetchJson, api } from './utils/api';
@@ -21,6 +23,8 @@ import { DeveloperApiDocs } from './components/DeveloperApiDocs';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AuthPortal } from './components/AuthPortal';
 import { Logo } from './components/Logo';
+import { ProfileSection } from './components/ProfileSection';
+import { SettingsSection } from './components/SettingsSection';
 
 function getOrderIdFromUrl(): string | null {
   try {
@@ -232,7 +236,7 @@ export function App() {
   });
 
   const [activeView, setActiveView] = useState<
-    'dashboard' | 'payment_links' | 'checkout' | 'admin' | 'auth' | 'docs'
+    'dashboard' | 'payment_links' | 'checkout' | 'admin' | 'auth' | 'docs' | 'profile' | 'settings'
   >(() => {
     if (initialUrlOrderId) {
       return 'checkout';
@@ -305,7 +309,76 @@ export function App() {
   const [isLoadingCheckout, setIsLoadingCheckout] = useState<boolean>(Boolean(initialUrlOrderId));
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
-  // Sync state to LocalStorage so data is NEVER lost on page refresh
+  // User-scoped data loader effect: when currentUser changes, load user's isolated profile, bank accounts, and orders
+  useEffect(() => {
+    if (!currentUser) return;
+    const uid = currentUser.id;
+
+    // Load profile for this user
+    try {
+      const savedProf = localStorage.getItem(`9tepay_profile_${uid}`);
+      if (savedProf) {
+        setProfile(JSON.parse(savedProf));
+      } else {
+        const userProf: MerchantProfile = {
+          businessName: currentUser.businessName || 'Merchant Services',
+          vpa: currentUser.vpa || 'merchant@icici',
+          phone: currentUser.phone || '+91 98765 43210',
+          email: currentUser.email || 'merchant@9tepay.com',
+          apiKey: `pi_live_${uid}`,
+          apiSecret: `sk_live_${uid}`,
+          webhookUrl: 'https://shop.example.com/api/webhook/upi-callback',
+          webhookSecret: 'whsec_live_99a8b7c6d5e4f3a2',
+          autoApproveUtr: true,
+          settlementRate: 0.0,
+          routingStrategy: 'smart_round_robin',
+          requireStrictUtrFormat: true,
+          preventDuplicateUtr: true,
+        };
+        setProfile(userProf);
+        localStorage.setItem(`9tepay_profile_${uid}`, JSON.stringify(userProf));
+      }
+    } catch {}
+
+    // Load bank accounts for this user
+    try {
+      const savedBanks = localStorage.getItem(`9tepay_banks_${uid}`);
+      if (savedBanks) {
+        setBankAccounts(JSON.parse(savedBanks));
+      } else {
+        const userBank: BankAccountQR = {
+          id: `bank_${uid}_01`,
+          bankName: 'ICICI Bank',
+          accountHolder: currentUser.businessName || currentUser.name,
+          accountNumber: '919876543210',
+          ifsc: 'ICIC0000102',
+          vpa: currentUser.vpa || 'merchant@icici',
+          qrTitle: `${currentUser.businessName || currentUser.name} Instant QR`,
+          qrType: 'dynamic_intent',
+          qrColor: '#10b981',
+          isPrimary: true,
+          isActive: true,
+          dailyLimit: 500000,
+          dailyVolume: 0,
+          totalSettled: 0,
+          routingWeight: 5,
+          createdAt: currentUser.createdAt || new Date().toISOString(),
+        };
+        setBankAccounts([userBank]);
+        localStorage.setItem(`9tepay_banks_${uid}`, JSON.stringify([userBank]));
+      }
+    } catch {}
+
+    // Load orders for this user
+    try {
+      const savedOrders = localStorage.getItem(`9tepay_orders_${uid}`);
+      if (savedOrders) {
+        setOrders(JSON.parse(savedOrders));
+      }
+    } catch {}
+  }, [currentUser?.id]);
+
+  // Sync state to LocalStorage (both per-user and global)
   useEffect(() => {
     if (currentUser) {
       try { localStorage.setItem('9tepay_user', JSON.stringify(currentUser)); } catch {}
@@ -314,19 +387,36 @@ export function App() {
 
   useEffect(() => {
     if (orders.length > 0) {
-      try { localStorage.setItem('9tepay_orders', JSON.stringify(orders)); } catch {}
+      try {
+        localStorage.setItem('9tepay_orders', JSON.stringify(orders));
+        if (currentUser?.id) {
+          localStorage.setItem(`9tepay_orders_${currentUser.id}`, JSON.stringify(orders));
+        }
+      } catch {}
     }
-  }, [orders]);
+  }, [orders, currentUser?.id]);
 
   useEffect(() => {
     if (bankAccounts.length > 0) {
-      try { localStorage.setItem('9tepay_bank_accounts', JSON.stringify(bankAccounts)); } catch {}
+      try {
+        localStorage.setItem('9tepay_bank_accounts', JSON.stringify(bankAccounts));
+        if (currentUser?.id) {
+          localStorage.setItem(`9tepay_banks_${currentUser.id}`, JSON.stringify(bankAccounts));
+        }
+      } catch {}
     }
-  }, [bankAccounts]);
+  }, [bankAccounts, currentUser?.id]);
 
   useEffect(() => {
-    try { localStorage.setItem('9tepay_profile', JSON.stringify(profile)); } catch {}
-  }, [profile]);
+    if (profile) {
+      try {
+        localStorage.setItem('9tepay_profile', JSON.stringify(profile));
+        if (currentUser?.id) {
+          localStorage.setItem(`9tepay_profile_${currentUser.id}`, JSON.stringify(profile));
+        }
+      } catch {}
+    }
+  }, [profile, currentUser?.id]);
 
   useEffect(() => {
     try { localStorage.setItem('9tepay_sec_events', JSON.stringify(securityEvents)); } catch {}
@@ -509,7 +599,7 @@ export function App() {
   };
 
   const handleViewChange = (
-    newView: 'dashboard' | 'payment_links' | 'checkout' | 'admin' | 'auth' | 'docs'
+    newView: 'dashboard' | 'payment_links' | 'checkout' | 'admin' | 'auth' | 'docs' | 'profile' | 'settings'
   ) => {
     setActiveView(newView);
     if (newView !== 'checkout' && window.history && window.history.pushState) {
@@ -611,12 +701,35 @@ export function App() {
   };
 
   const handleUpdateProfile = async (updated: Partial<MerchantProfile>) => {
-    const data = await api.put<{ success: boolean; profile: MerchantProfile; error?: string }>(
-      '/api/merchant/profile',
-      updated
-    );
-    if (data.success && data.profile) {
-      setProfile(data.profile);
+    try {
+      const data = await api.put<{ success: boolean; profile: MerchantProfile; error?: string }>(
+        '/api/merchant/profile',
+        updated
+      );
+      if (data.success && data.profile) {
+        setProfile(data.profile);
+        try {
+          localStorage.setItem('9tepay_profile', JSON.stringify(data.profile));
+        } catch {
+          // ignore
+        }
+      } else {
+        setProfile((prev) => {
+          const merged = { ...prev, ...updated };
+          try {
+            localStorage.setItem('9tepay_profile', JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
+      }
+    } catch {
+      setProfile((prev) => {
+        const merged = { ...prev, ...updated };
+        try {
+          localStorage.setItem('9tepay_profile', JSON.stringify(merged));
+        } catch {}
+        return merged;
+      });
     }
   };
 
@@ -783,6 +896,19 @@ export function App() {
     }
   };
 
+  const handleUpdateUser = (updatedFields: Partial<User>) => {
+    setCurrentUser((prev) => {
+      if (!prev) return null;
+      const updated = { ...prev, ...updatedFields };
+      try {
+        localStorage.setItem('9tepay_user', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  };
+
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
 
@@ -851,7 +977,7 @@ export function App() {
   const effectiveView = !currentUser && !isPublicCheckout ? 'auth' : activeView;
 
   return (
-    <div className={effectiveView === 'checkout' ? "min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white" : "min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-blue-600 selection:text-white"}>
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
       {/* Top Header Navbar - Hidden in Standalone Checkout Mode */}
       {effectiveView !== 'checkout' && (
         <header className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md sticky top-0 z-40 shadow-xs">
@@ -873,7 +999,7 @@ export function App() {
                     onClick={() => handleViewChange('admin')}
                     className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                       effectiveView === 'admin'
-                        ? 'bg-slate-900 text-white shadow-xs'
+                        ? 'bg-blue-600 text-white shadow-xs'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                     }`}
                     title="Superadmin Panel"
@@ -924,6 +1050,34 @@ export function App() {
                   <Code2 className="w-3.5 h-3.5" />
                   <span>API</span>
                 </button>
+
+                {/* Profile Section */}
+                <button
+                  onClick={() => handleViewChange('profile')}
+                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                    effectiveView === 'profile'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                  }`}
+                  title="Profile & Account Details"
+                >
+                  <UserIcon className="w-3.5 h-3.5" />
+                  <span>Profile</span>
+                </button>
+
+                {/* Settings Section */}
+                <button
+                  onClick={() => handleViewChange('settings')}
+                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                    effectiveView === 'settings'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                  }`}
+                  title="Account Settings & Security"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  <span>Settings</span>
+                </button>
               </nav>
             ) : (
               <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
@@ -937,10 +1091,14 @@ export function App() {
             {/* Quick User Badge & Sign Out Button */}
             {currentUser && (
               <div className="flex items-center gap-2">
-                <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 shadow-2xs">
+                <button
+                  onClick={() => handleViewChange('profile')}
+                  className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 shadow-2xs cursor-pointer transition-all"
+                  title="View Profile Details"
+                >
                   <span className={`w-2 h-2 rounded-full ${currentUser.role === 'admin' ? 'bg-indigo-500' : 'bg-blue-500'} animate-pulse`}></span>
                   <span className="font-semibold text-slate-800 truncate max-w-[120px]">{currentUser.name}</span>
-                </div>
+                </button>
                 <button
                   onClick={handleLogout}
                   className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center gap-1.5 shrink-0 shadow-2xs"
@@ -1088,6 +1246,28 @@ export function App() {
             {/* VIEW 6: Developer API Docs */}
             {effectiveView === 'docs' && (
               <DeveloperApiDocs profile={profile} />
+            )}
+
+            {/* VIEW 7: Profile Section */}
+            {effectiveView === 'profile' && (
+              <ProfileSection
+                currentUser={currentUser}
+                profile={profile}
+                bankAccounts={bankAccounts}
+                onGoToSettings={() => handleViewChange('settings')}
+                onGoToBankAccounts={() => handleViewChange('dashboard')}
+              />
+            )}
+
+            {/* VIEW 8: Settings Section */}
+            {effectiveView === 'settings' && (
+              <SettingsSection
+                currentUser={currentUser}
+                profile={profile}
+                bankAccounts={bankAccounts}
+                onUpdateUser={handleUpdateUser}
+                onUpdateProfile={handleUpdateProfile}
+              />
             )}
           </>
         )}

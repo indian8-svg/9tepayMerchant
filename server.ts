@@ -472,6 +472,62 @@ let currentUser: {
   createdAt: string;
 } | null = null;
 
+// Multi-tenant stores
+const userProfilesMap = new Map<string, typeof merchantProfile>();
+const userBankAccountsMap = new Map<string, BankAccountItem[]>();
+
+function getProfileForUser(userId: string) {
+  if (userProfilesMap.has(userId)) {
+    return userProfilesMap.get(userId)!;
+  }
+  const merch = merchantsList.find((m) => m.id === userId);
+  const userProf = {
+    businessName: merch ? merch.businessName : "Merchant Services",
+    vpa: merch ? merch.vpa : "merchant@icici",
+    phone: merch ? merch.phone : "+91 98765 43210",
+    email: merch ? merch.email : "merchant@9tepay.com",
+    apiKey: `pi_live_${userId}_${Math.random().toString(36).substring(2, 8)}`,
+    apiSecret: `sk_live_${userId}_${Math.random().toString(36).substring(2, 10)}`,
+    webhookUrl: "https://shop.example.com/api/webhook/upi-callback",
+    webhookSecret: "whsec_live_99a8b7c6d5e4f3a2",
+    autoApproveUtr: true,
+    settlementRate: 0.0,
+    routingStrategy: "smart_round_robin" as const,
+    requireStrictUtrFormat: true,
+    preventDuplicateUtr: true,
+  };
+  userProfilesMap.set(userId, userProf);
+  return userProf;
+}
+
+function getBankAccountsForUser(userId: string): BankAccountItem[] {
+  if (userBankAccountsMap.has(userId)) {
+    return userBankAccountsMap.get(userId)!;
+  }
+  const merch = merchantsList.find((m) => m.id === userId);
+  const defaultBank: BankAccountItem = {
+    id: `bank_${userId}_01`,
+    bankName: merch?.ifsc?.startsWith("HDFC") ? "HDFC Bank" : "ICICI Bank",
+    accountHolder: merch ? merch.businessName : "Merchant Store",
+    accountNumber: merch ? merch.bankAccount : "919876543210",
+    ifsc: merch ? merch.ifsc : "ICIC0000102",
+    vpa: merch ? merch.vpa : "merchant@icici",
+    qrTitle: `${merch ? merch.businessName : "Merchant"} Instant QR`,
+    qrType: "dynamic_intent",
+    qrColor: "#10b981",
+    isPrimary: true,
+    isActive: true,
+    dailyLimit: 500000,
+    dailyVolume: 0,
+    totalSettled: 0,
+    routingWeight: 5,
+    createdAt: merch?.createdAt || new Date().toISOString(),
+  };
+  const list = [defaultBank];
+  userBankAccountsMap.set(userId, list);
+  return list;
+}
+
 // --- Auth Routes (/auth/login.php & /auth/register.php) ---
 app.get(["/api/auth/me", "/auth/me"], (_req, res) => {
   if (!currentUser) {
@@ -482,15 +538,16 @@ app.get(["/api/auth/me", "/auth/me"], (_req, res) => {
 
 app.post(["/api/auth/login", "/auth/login.php", "/api/login", "/auth/login"], (req, res) => {
   const { emailOrPhone, password, role } = req.body;
+  const targetEmail = (emailOrPhone || "").trim().toLowerCase();
   
-  if (role === "admin" || emailOrPhone === "admin@demotry.shop") {
+  if (role === "admin" || targetEmail === "admin@demotry.shop" || targetEmail === "admin@9tepay.com") {
     currentUser = {
       id: "usr_admin_001",
       name: "Master Administrator",
-      email: "admin@demotry.shop",
+      email: targetEmail || "admin@9tepay.com",
       phone: "+91 90000 00001",
       role: "admin",
-      businessName: "Demotry Payment Systems",
+      businessName: "9tepay Master Administration",
       vpa: "admin.gateway@icici",
       status: "active",
       createdAt: "2026-01-01T00:00:00.000Z",
@@ -498,43 +555,59 @@ app.post(["/api/auth/login", "/auth/login.php", "/api/login", "/auth/login"], (r
     return res.json({ success: true, user: currentUser, token: "payindia_session_admin_live" });
   }
 
-  // Find merchant
-  const found = merchantsList.find(
-    (m) => m.email.toLowerCase() === emailOrPhone?.toLowerCase() || m.phone === emailOrPhone
+  // Find existing merchant
+  let found = merchantsList.find(
+    (m) => m.email.toLowerCase() === targetEmail || m.phone === targetEmail
   );
 
-  if (found) {
-    currentUser = {
-      id: found.id,
-      name: found.ownerName,
-      email: found.email,
-      phone: found.phone,
-      role: "merchant",
-      businessName: found.businessName,
-      vpa: found.vpa,
-      status: found.status,
-      createdAt: found.createdAt,
-    };
-    merchantProfile.businessName = found.businessName;
-    merchantProfile.vpa = found.vpa;
-    merchantProfile.email = found.email;
-    merchantProfile.phone = found.phone;
-  } else {
-    // Default demo login
-    currentUser = {
-      id: "usr_merchant_01",
-      name: "Abhay Sharma",
-      email: emailOrPhone || "merchant@demotry.shop",
-      phone: "+91 98765 43210",
-      role: "merchant",
-      businessName: merchantProfile.businessName,
-      vpa: merchantProfile.vpa,
+  if (!found) {
+    // Brand new user logging in - auto-provision unique merchant account for this email
+    const emailName = targetEmail ? targetEmail.split("@")[0] : "Merchant";
+    const cleanOwnerName = emailName.charAt(0).toUpperCase() + emailName.slice(1);
+    const cleanBusinessName = `${cleanOwnerName} Store`;
+    const cleanVpa = `${emailName.toLowerCase()}@icici`;
+    const newMerchId = `merch_live_${Math.random().toString(36).substring(2, 8)}`;
+
+    found = {
+      id: newMerchId,
+      businessName: cleanBusinessName,
+      ownerName: cleanOwnerName,
+      email: targetEmail || `merchant_${newMerchId}@9tepay.com`,
+      phone: "+91 98000 00000",
+      vpa: cleanVpa,
+      bankAccount: "919000000000",
+      ifsc: "ICIC0000102",
+      commissionRate: 0.0,
       status: "active",
-      createdAt: "2026-08-01T10:00:00.000Z",
+      totalVolume: 0.0,
+      totalOrders: 0,
+      createdAt: new Date().toISOString(),
     };
+    merchantsList.unshift(found);
   }
 
-  res.json({ success: true, user: currentUser, token: "payindia_session_merchant_live" });
+  currentUser = {
+    id: found.id,
+    name: found.ownerName,
+    email: found.email,
+    phone: found.phone,
+    role: "merchant",
+    businessName: found.businessName,
+    vpa: found.vpa,
+    status: found.status,
+    createdAt: found.createdAt,
+  };
+
+  const userProf = getProfileForUser(found.id);
+  const userBanks = getBankAccountsForUser(found.id);
+
+  res.json({
+    success: true,
+    user: currentUser,
+    profile: userProf,
+    bankAccounts: userBanks,
+    token: `payindia_session_${found.id}`
+  });
 });
 
 app.post(["/api/auth/register", "/auth/register.php", "/api/register", "/auth/register"], (req, res) => {
@@ -547,11 +620,47 @@ app.post(["/api/auth/register", "/auth/register.php", "/api/register", "/auth/re
 
     const cleanVpa = vpa.trim().toLowerCase();
     const cleanBusinessName = businessName.trim();
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
     const cleanPhone = phone?.trim() || "+91 98000 00000";
     const cleanOwner = ownerName?.trim() || cleanBusinessName;
     const cleanBankAcc = bankAccount?.trim() || "919000000000";
     const cleanIfsc = ifsc?.trim().toUpperCase() || "ICIC0000102";
+
+    const existing = merchantsList.find((m) => m.email.toLowerCase() === cleanEmail);
+    if (existing) {
+      existing.businessName = cleanBusinessName;
+      existing.ownerName = cleanOwner;
+      existing.vpa = cleanVpa;
+      existing.phone = cleanPhone;
+      existing.bankAccount = cleanBankAcc;
+      existing.ifsc = cleanIfsc;
+
+      currentUser = {
+        id: existing.id,
+        name: existing.ownerName,
+        email: existing.email,
+        phone: existing.phone,
+        role: "merchant",
+        businessName: existing.businessName,
+        vpa: existing.vpa,
+        status: existing.status,
+        createdAt: existing.createdAt,
+      };
+
+      const userProf = getProfileForUser(existing.id);
+      userProf.businessName = cleanBusinessName;
+      userProf.vpa = cleanVpa;
+      userProf.email = cleanEmail;
+      userProf.phone = cleanPhone;
+
+      return res.status(200).json({
+        success: true,
+        message: "Account updated successfully.",
+        user: currentUser,
+        profile: userProf,
+        token: `payindia_session_${existing.id}`,
+      });
+    }
 
     const newMerchId = `merch_live_${Math.random().toString(36).substring(2, 8)}`;
     const newMerchant: MerchantListItem = {
@@ -573,7 +682,7 @@ app.post(["/api/auth/register", "/auth/register.php", "/api/register", "/auth/re
     merchantsList.unshift(newMerchant);
 
     // Create primary bank account for new merchant
-    const newBankId = `bank_${Math.random().toString(36).substring(2, 8)}`;
+    const newBankId = `bank_${newMerchId}_01`;
     const newBankAccount: BankAccountItem = {
       id: newBankId,
       bankName: cleanIfsc.startsWith("HDFC")
@@ -599,17 +708,25 @@ app.post(["/api/auth/register", "/auth/register.php", "/api/register", "/auth/re
       createdAt: new Date().toISOString(),
     };
 
-    // Make other accounts non-primary if desired
-    bankAccounts.forEach((b) => (b.isPrimary = false));
-    bankAccounts.unshift(newBankAccount);
+    userBankAccountsMap.set(newMerchId, [newBankAccount]);
 
-    // Switch merchantProfile
-    merchantProfile.businessName = cleanBusinessName;
-    merchantProfile.vpa = cleanVpa;
-    merchantProfile.email = cleanEmail;
-    merchantProfile.phone = cleanPhone;
-    merchantProfile.apiKey = `pi_live_${Math.random().toString(36).substring(2, 16)}`;
-    merchantProfile.apiSecret = `sk_live_${Math.random().toString(36).substring(2, 18)}`;
+    // Create user profile
+    const newUserProf = {
+      businessName: cleanBusinessName,
+      vpa: cleanVpa,
+      email: cleanEmail,
+      phone: cleanPhone,
+      apiKey: `pi_live_${newMerchId}_${Math.random().toString(36).substring(2, 8)}`,
+      apiSecret: `sk_live_${newMerchId}_${Math.random().toString(36).substring(2, 10)}`,
+      webhookUrl: "https://shop.example.com/api/webhook/upi-callback",
+      webhookSecret: `whsec_live_${Math.random().toString(36).substring(2, 10)}`,
+      autoApproveUtr: true,
+      settlementRate: 0.0,
+      routingStrategy: "smart_round_robin" as const,
+      requireStrictUtrFormat: true,
+      preventDuplicateUtr: true,
+    };
+    userProfilesMap.set(newMerchId, newUserProf);
 
     currentUser = {
       id: newMerchant.id,
@@ -627,7 +744,8 @@ app.post(["/api/auth/register", "/auth/register.php", "/api/register", "/auth/re
       success: true,
       message: "Merchant registered successfully with instant VPA routing.",
       user: currentUser,
-      profile: merchantProfile,
+      profile: newUserProf,
+      bankAccounts: [newBankAccount],
       token: `payindia_session_${newMerchId}`,
     });
   } catch (err: any) {
@@ -870,30 +988,45 @@ app.post(["/api/security/probe", "/api/security/test-tamper"], (req, res) => {
 
 // Get Profile & Configuration
 app.get("/api/merchant/profile", (_req, res) => {
+  const userId = currentUser ? currentUser.id : "merch_live_01";
+  const userProf = getProfileForUser(userId);
+  const userBanks = getBankAccountsForUser(userId);
   res.json({
-    ...merchantProfile,
-    bankAccounts,
+    ...userProf,
+    bankAccounts: userBanks,
   });
 });
 
 // Update Profile
 app.put("/api/merchant/profile", (req, res) => {
-  merchantProfile = { ...merchantProfile, ...req.body };
-  res.json({ success: true, profile: merchantProfile });
+  const userId = currentUser ? currentUser.id : "merch_live_01";
+  const userProf = getProfileForUser(userId);
+  Object.assign(userProf, req.body);
+  if (req.body.businessName && currentUser) {
+    currentUser.businessName = req.body.businessName;
+  }
+  if (req.body.vpa && currentUser) {
+    currentUser.vpa = req.body.vpa;
+  }
+  res.json({ success: true, profile: userProf });
 });
 
 // Regenerate API credentials
 app.post("/api/merchant/keys/regenerate", (_req, res) => {
-  merchantProfile.apiKey = "pi_live_" + Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
-  merchantProfile.apiSecret = "sk_live_" + Math.random().toString(36).substring(2, 12) + Math.random().toString(36).substring(2, 12);
-  res.json({ success: true, apiKey: merchantProfile.apiKey, apiSecret: merchantProfile.apiSecret });
+  const userId = currentUser ? currentUser.id : "merch_live_01";
+  const userProf = getProfileForUser(userId);
+  userProf.apiKey = "pi_live_" + Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
+  userProf.apiSecret = "sk_live_" + Math.random().toString(36).substring(2, 12) + Math.random().toString(36).substring(2, 12);
+  res.json({ success: true, apiKey: userProf.apiKey, apiSecret: userProf.apiSecret });
 });
 
 // List all orders
 app.get("/api/orders", (_req, res) => {
+  const userId = currentUser ? currentUser.id : null;
+  const userBanks = userId ? getBankAccountsForUser(userId) : bankAccounts;
   const enrichedOrders = orders.map((o) => {
     if (!o.customQrImage) {
-      const bank = bankAccounts.find(
+      const bank = userBanks.find(
         (b) => b.id === o.bankAccountId || b.vpa.toLowerCase() === o.merchantVpa.toLowerCase()
       );
       if (bank?.customQrImage) {
@@ -902,6 +1035,21 @@ app.get("/api/orders", (_req, res) => {
     }
     return o;
   });
+
+  if (currentUser && currentUser.role === "admin") {
+    return res.json(enrichedOrders);
+  }
+
+  if (currentUser) {
+    const userVpas = userBanks.map((b) => b.vpa.toLowerCase());
+    if (currentUser.vpa) userVpas.push(currentUser.vpa.toLowerCase());
+
+    const userOrders = enrichedOrders.filter(
+      (o) => userVpas.includes(o.merchantVpa.toLowerCase()) || (userId && o.bankAccountId?.includes(userId))
+    );
+    return res.json(userOrders.length > 0 ? userOrders : enrichedOrders);
+  }
+
   res.json(enrichedOrders);
 });
 
