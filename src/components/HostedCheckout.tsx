@@ -65,7 +65,17 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
     uploadedQrImage ? 'uploaded_standee' : 'dynamic_vector'
   );
 
-  // Sync state if initialOrder changes
+  const [intentGuideApp, setIntentGuideApp] = useState<string | null>(null);
+
+  const handleAppIntentClick = (appName: string, e: React.MouseEvent) => {
+    // Auto-copy VPA to clipboard on any app intent tap
+    try {
+      navigator.clipboard.writeText(order.merchantVpa);
+      setCopiedVpa(true);
+      setTimeout(() => setCopiedVpa(false), 3000);
+    } catch {}
+    setIntentGuideApp(appName);
+  };
   useEffect(() => {
     setOrder(initialOrder);
   }, [initialOrder]);
@@ -421,6 +431,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                 {/* Google Pay */}
                 <a
                   href={deeplinks.gpay}
+                  onClick={(e) => handleAppIntentClick('Google Pay', e)}
                   className="bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/70 p-2.5 rounded-xl flex items-center gap-2 text-xs font-semibold text-slate-200 transition-all cursor-pointer group"
                 >
                   <div className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-black text-[10px]">
@@ -432,6 +443,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                 {/* PhonePe */}
                 <a
                   href={deeplinks.phonepe}
+                  onClick={(e) => handleAppIntentClick('PhonePe', e)}
                   className="bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/70 p-2.5 rounded-xl flex items-center gap-2 text-xs font-semibold text-slate-200 transition-all cursor-pointer group"
                 >
                   <div className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center font-black text-[10px]">
@@ -440,10 +452,12 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                   <span>PhonePe</span>
                 </a>
 
-                {/* Paytm */}
+                {/* Paytm Standard Open */}
                 <a
-                  href={deeplinks.paytm}
-                  className="bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/70 p-2.5 rounded-xl flex items-center gap-2 text-xs font-semibold text-slate-200 transition-all cursor-pointer group"
+                  href={deeplinks.generic}
+                  onClick={(e) => handleAppIntentClick('Paytm', e)}
+                  className="bg-slate-800/80 hover:bg-slate-700/80 border border-cyan-500/40 p-2.5 rounded-xl flex items-center gap-2 text-xs font-semibold text-cyan-300 transition-all cursor-pointer group"
+                  title="Pay via Paytm Standard UPI"
                 >
                   <div className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-black text-[10px]">
                     Py
@@ -454,6 +468,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                 {/* BHIM / Cred */}
                 <a
                   href={deeplinks.bhim}
+                  onClick={(e) => handleAppIntentClick('BHIM UPI', e)}
                   className="bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/70 p-2.5 rounded-xl flex items-center gap-2 text-xs font-semibold text-slate-200 transition-all cursor-pointer group"
                 >
                   <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-[10px]">
@@ -552,6 +567,69 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                   <span>Submit & Verify UTR</span>
                 </button>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Intent Guidance Modal */}
+      {intentGuideApp && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+          onClick={() => setIntentGuideApp(null)}
+        >
+          <div
+            className="bg-slate-900 border border-emerald-500/40 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">VPA Copied to Clipboard!</h4>
+                  <p className="text-xs text-emerald-400 font-mono font-bold mt-0.5">{order.merchantVpa}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIntentGuideApp(null)}
+                className="text-slate-400 hover:text-white p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 space-y-2 text-xs">
+              <div className="text-amber-300 font-semibold flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Notice for Paytm / PhonePe Intent Payments</span>
+              </div>
+              <p className="text-slate-300 leading-relaxed text-[11px]">
+                If {intentGuideApp} displays <em>"Unverified merchant can't accept intent payments"</em>:
+              </p>
+              <ol className="list-decimal list-inside space-y-1 text-slate-300 text-[11px] font-medium pl-1">
+                <li>In {intentGuideApp}, tap <strong>"To UPI ID"</strong> or <strong>"Pay to Mobile/UPI"</strong></li>
+                <li>Paste <strong>{order.merchantVpa}</strong></li>
+                <li>Pay <strong>₹{order.amount.toFixed(2)}</strong> & copy the 12-digit UTR</li>
+                <li>Enter the UTR on this screen to confirm your order!</li>
+              </ol>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={handleCopyVpa}
+                className="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {copiedVpa ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                <span>{copiedVpa ? 'Copied VPA Again' : 'Re-Copy VPA'}</span>
+              </button>
+              <button
+                onClick={() => setIntentGuideApp(null)}
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs py-2.5 rounded-xl transition-all cursor-pointer"
+              >
+                Got It, Continue
+              </button>
             </div>
           </div>
         </div>

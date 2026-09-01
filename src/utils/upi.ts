@@ -12,8 +12,8 @@ export function generateUpiString(config: UpilinkConfig): string {
   const cleanNote = encodeURIComponent(note?.trim() || `Order ${orderNumber}`);
   const cleanTr = encodeURIComponent(orderNumber.trim());
 
-  // mc=0000 / mc=8999 standard merchant code, mode=02 standard static/intent QR
-  return `upi://pay?pa=${cleanVpa}&pn=${cleanName}&am=${cleanAmount}&cu=INR&tn=${cleanNote}&tr=${cleanTr}&mc=0000&mode=02`;
+  // Clean standard NPCI P2P/P2M compatible string without forcing restricted merchant codes
+  return `upi://pay?pa=${cleanVpa}&pn=${cleanName}&am=${cleanAmount}&cu=INR&tn=${cleanNote}&tr=${cleanTr}`;
 }
 
 export interface AppDeeplinks {
