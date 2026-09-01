@@ -198,14 +198,48 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
     }
   };
 
-  const copyText = (text: string, setter: (val: boolean) => void) => {
-    navigator.clipboard.writeText(text);
+  const copyText = async (text: string, setter: (val: boolean) => void) => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        textArea.remove();
+      }
+    } catch {
+      // ignore
+    }
     setter(true);
     setTimeout(() => setter(false), 2000);
   };
 
-  const copyOrderLink = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
+  const copyOrderLink = async (id: string, text: string) => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        textArea.remove();
+      }
+    } catch {
+      // ignore
+    }
     setCopiedLinkIndex(id);
     setTimeout(() => setCopiedLinkIndex(null), 2000);
   };

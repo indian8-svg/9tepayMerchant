@@ -96,11 +96,30 @@ export const PaymentLinksManager: React.FC<PaymentLinksManagerProps> = ({
     return `${window.location.origin}/checkout/${id}`;
   };
 
-  const handleCopyLink = (id: string) => {
+  const handleCopyLink = async (id: string) => {
     const url = getCheckoutUrl(id);
-    navigator.clipboard.writeText(url);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2500);
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = url;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        textArea.remove();
+      }
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2500);
+    } catch {
+      // Fallback
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2500);
+    }
   };
 
   const filteredLinks = orders.filter((order) => {
