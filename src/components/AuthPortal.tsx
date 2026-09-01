@@ -106,56 +106,9 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
         return;
       }
 
-      if (res.data?.error) {
-        setErrorMsg(res.data.error);
-        return;
-      }
-
-      // Local fallback look up for stored user details
-      const targetRole = payload.role === 'admin' || payload.emailOrPhone?.toLowerCase().includes('admin') ? 'admin' : 'merchant';
-      const cleanInput = (payload.emailOrPhone || '').toLowerCase().trim();
-      const localMap = getRegisteredUsersMap();
-
-      if (localMap[cleanInput]) {
-        const storedUser = localMap[cleanInput];
-        const mockToken = `payindia_session_${storedUser.id}`;
-        if (rememberMe || targetRole === 'admin') {
-          localStorage.setItem('9tepay_session_token', mockToken);
-        } else {
-          sessionStorage.setItem('9tepay_session_token', mockToken);
-        }
-        setSuccessMsg(`Welcome back, ${storedUser.name}!`);
-        onLoginSuccess(storedUser);
-        return;
-      }
-
-      // If not previously stored, derive clean distinct user
-      const namePart = cleanInput ? cleanInput.split('@')[0] : 'merchant';
-      const ownerName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-      const fallbackUser: User = {
-        id: targetRole === 'admin' ? 'usr_admin_001' : `usr_${Math.random().toString(36).substring(2, 8)}`,
-        name: targetRole === 'admin' ? 'Master Administrator' : ownerName,
-        email: cleanInput || (targetRole === 'admin' ? 'admin@9tepay.com' : 'merchant@9tepay.com'),
-        phone: '+91 98765 43210',
-        role: targetRole,
-        businessName: targetRole === 'admin' ? '9tepay Master Administration' : `${ownerName} Store`,
-        vpa: targetRole === 'admin' ? 'admin.gateway@icici' : `${namePart.toLowerCase()}@icici`,
-        status: 'active',
-        createdAt: new Date().toISOString(),
-      };
-      
-      const mockToken = `payindia_session_${fallbackUser.id}`;
-      if (rememberMe || targetRole === 'admin') {
-        localStorage.setItem('9tepay_session_token', mockToken);
-      } else {
-        sessionStorage.setItem('9tepay_session_token', mockToken);
-      }
-      
-      saveRegisteredUserToLocalMap(fallbackUser);
-      setSuccessMsg(`Welcome back, ${fallbackUser.name}!`);
-      onLoginSuccess(fallbackUser);
+      setErrorMsg(res.data?.error || 'Invalid email/phone or password. Please verify your credentials.');
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Login failed. Please check credentials and try again.');
+      setErrorMsg(err?.message || 'Login failed. Please check your network connection and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -207,49 +160,9 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
         return;
       }
 
-      if (res.data?.error) {
-        setErrorMsg(res.data.error);
-        return;
-      }
-
-      // Fallback registration
-      const fallbackUser: User = {
-        id: `usr_${Math.random().toString(36).substring(2, 8)}`,
-        name: regOwnerName || regBusinessName,
-        email: regEmail.trim().toLowerCase(),
-        phone: regPhone || '+91 98000 00000',
-        role: 'merchant',
-        businessName: regBusinessName,
-        vpa: regVpa.trim().toLowerCase(),
-        status: 'active',
-        createdAt: new Date().toISOString(),
-      };
-      
-      const mockToken = `payindia_session_${fallbackUser.id}`;
-      if (rememberMe) {
-        localStorage.setItem('9tepay_session_token', mockToken);
-      } else {
-        sessionStorage.setItem('9tepay_session_token', mockToken);
-      }
-      
-      saveRegisteredUserToLocalMap(fallbackUser);
-      setSuccessMsg('Account registered successfully! Direct UPI settlement activated.');
-      onLoginSuccess(fallbackUser);
-    } catch {
-      const fallbackUser: User = {
-        id: `usr_${Math.random().toString(36).substring(2, 8)}`,
-        name: regOwnerName || regBusinessName,
-        email: regEmail.trim().toLowerCase(),
-        phone: regPhone || '+91 98000 00000',
-        role: 'merchant',
-        businessName: regBusinessName,
-        vpa: regVpa.trim().toLowerCase(),
-        status: 'active',
-        createdAt: new Date().toISOString(),
-      };
-      saveRegisteredUserToLocalMap(fallbackUser);
-      setSuccessMsg('Account registered successfully! Direct UPI settlement activated.');
-      onLoginSuccess(fallbackUser);
+      setErrorMsg(res.data?.error || 'Registration failed. Please verify the submitted details.');
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Registration error. Please check your connection and try again.');
     } finally {
       setIsLoading(false);
     }

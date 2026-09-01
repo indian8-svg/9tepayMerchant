@@ -448,7 +448,23 @@ interface MerchantListItem {
   createdAt: string;
 }
 
-let merchantsList: MerchantListItem[] = [];
+const defaultDemoMerchant: MerchantListItem = {
+  id: "merch_live_01",
+  businessName: "Abhay Digital Store",
+  ownerName: "Abhay Kumar",
+  email: "merchant@9tepay.com",
+  phone: "+91 98765 43210",
+  vpa: "merchant.settle@hdfcbank",
+  bankAccount: "919876543210",
+  ifsc: "HDFC0000102",
+  commissionRate: 0.0,
+  status: "active",
+  totalVolume: 4848.0,
+  totalOrders: 6,
+  createdAt: "2026-01-15T10:00:00.000Z",
+};
+
+let merchantsList: MerchantListItem[] = [defaultDemoMerchant];
 
 interface SessionUser {
   id: string;
@@ -486,6 +502,9 @@ function verifyPassword(password: string, storedHash: string): boolean {
   const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, "sha512").toString("hex");
   return hash === originalHash;
 }
+
+// Pre-seed demo merchant password hash: merchant123
+userPasswordsMap.set("merch_live_01", hashPassword("merchant123"));
 
 function getAuthenticatedUser(req: any): SessionUser | null {
   let token = "";
@@ -1185,7 +1204,11 @@ app.get("/api/orders", requireAuth, (req, res) => {
   if (req.user.vpa) userVpas.push(safeLower(req.user.vpa));
 
   const userOrders = enrichedOrders.filter(
-    (o) => userVpas.includes(safeLower(o.merchantVpa)) || o.bankAccountId?.includes(userId) || o.userId === userId
+    (o) =>
+      o.userId === userId ||
+      userVpas.includes(safeLower(o.merchantVpa)) ||
+      (o.bankAccountId && o.bankAccountId.includes(userId)) ||
+      !o.userId
   );
   return res.json(userOrders);
 });
@@ -1275,7 +1298,14 @@ app.post("/api/orders", requireAuth, (req, res) => {
 // Fetch Single Order
 app.get("/api/orders/:id", (req, res) => {
   const { id } = req.params;
-  const order = orders.find((o) => o.id === id || o.orderNumber === id);
+  const cleanId = String(id || "").trim();
+  const order = orders.find(
+    (o) =>
+      o.id === cleanId ||
+      o.orderNumber === cleanId ||
+      safeLower(o.id) === safeLower(cleanId) ||
+      safeLower(o.orderNumber) === safeLower(cleanId)
+  );
   if (!order) {
     return res.status(404).json({ error: "Order not found" });
   }
@@ -1328,10 +1358,10 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
         amount: Number(req.body?.amount) || 1.0,
         currency: "INR",
         customerName: req.body?.customerName || "Customer",
-        merchantVpa: userProf.vpa || "9tepay.business@icici",
+        merchantVpa: userProf.vpa || "merchant.settle@hdfcbank",
         merchantName: userProf.businessName || "9tepay Merchant Services",
         status: "PENDING",
-        upiString: buildUpiUri(userProf.vpa || "9tepay.business@icici", userProf.businessName, 1.0, fallbackOrderNumber, "Order Payment"),
+        upiString: buildUpiUri(userProf.vpa || "merchant.settle@hdfcbank", userProf.businessName, 1.0, fallbackOrderNumber, "Order Payment"),
         createdAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 1000 * 60 * 15).toISOString(),
         userId: orderUserId,
@@ -1349,7 +1379,7 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
     }
 
     const clientIp = (req.headers["x-forwarded-for"] as string) || req.socket?.remoteAddress || "127.0.0.1";
-    const rawUtr = String(inputUtr || "").trim();
+    const rawUtr = String(inputUtr || "").replace(/[^a-zA-Z0-9]/g, "").trim();
 
     // If simulate flag or empty utr provided, auto-generate fresh unique 12-digit UTR
     let finalUtr = rawUtr;
@@ -1358,29 +1388,15 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
     }
 
     if (!finalUtr) {
-      return res.status(400).json({ success: false, error: "Bank 12-digit UTR / Reference number is required for manual settlement." });
+      return res.status(400).json({ success: false, error: "Bank 12-digit UTR / Reference number is required for settlement." });
     }
 
-    // Security Check 1: Strict 12-digit format check (only if format flag active AND user input is not empty)
+    // Security Check 1: Format validation (minimum 6 alphanumeric chars)
     if (userProf.requireStrictUtrFormat && rawUtr) {
-      const isStrict12 = /^\d{12}$/.test(finalUtr);
-      if (!isStrict12) {
-        const secEvt: SecurityEventItem = {
-          id: `sec_evt_${Date.now().toString().slice(-6)}`,
-          type: "INVALID_UTR_FORMAT",
-          severity: "medium",
-          timestamp: new Date().toISOString(),
-          ipAddress: clientIp,
-          details: `Submitted invalid UTR format '${finalUtr}'. Must be exactly 12 numeric digits.`,
-          orderNumber: order.orderNumber,
-          utr: finalUtr,
-          status: "BLOCKED",
-        };
-        getSecurityLogsForUser(orderUserId).unshift(secEvt);
-
+      if (finalUtr.length < 6) {
         return res.status(400).json({
           success: false,
-          error: "Invalid UTR format. Indian NPCI banking standard requires exactly 12 numeric digits.",
+          error: "Invalid UTR format. Please enter a valid 12-digit UPI transaction reference number.",
           code: "INVALID_UTR_FORMAT",
         });
       }
@@ -1389,7 +1405,7 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
     // Security Check 2: Anti-Fraud Duplicate UTR Prevention
     if (userProf.preventDuplicateUtr && rawUtr) {
       const duplicateOrder = orders.find(
-        (o) => o.status === "PAID" && o.utrNumber === finalUtr && o.id !== order?.id
+        (o) => o.status === "PAID" && o.utrNumber === finalUtr && o.id !== order?.id && o.orderNumber !== order?.orderNumber
       );
 
       if (duplicateOrder) {
@@ -1414,10 +1430,17 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
       }
     }
 
+    // Assign UTR and provider to order
+    order.utrNumber = finalUtr;
+    order.provider = "MANUAL_UPI";
+    order.paymentApp = "UPI";
+
     // Sync utrNumber and reviewRequired status across all order aliases in memory
     orders.forEach((o) => {
       if (o.id === order.id || o.orderNumber === order.orderNumber || (order.id && o.id === order.id)) {
         o.utrNumber = finalUtr;
+        o.provider = "MANUAL_UPI";
+        o.paymentApp = "UPI";
         if (!userProf.autoApproveUtr && !simulate) {
           o.status = "PENDING";
           (o as any).reviewRequired = true;
@@ -1432,6 +1455,8 @@ const handleVerifyOrderRequest = (req: express.Request, res: express.Response) =
 
     // If auto approve is disabled by merchant, set order to reviewRequired pending merchant approval
     if (!userProf.autoApproveUtr && !simulate) {
+      order.status = "PENDING";
+      (order as any).reviewRequired = true;
       return res.json({
         success: true,
         message: "UTR submitted successfully. Awaiting merchant approval.",
