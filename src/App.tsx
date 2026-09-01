@@ -46,6 +46,177 @@ function getOrderIdFromUrl(): string | null {
   return null;
 }
 
+// Initial Seed Defaults (Used when localStorage is empty on first launch)
+const SEED_ORDERS: Order[] = [
+  {
+    id: 'ord_live_89102',
+    orderNumber: 'ORD-2026-981',
+    amount: 1499.0,
+    currency: 'INR',
+    customerName: 'Aarav Sharma',
+    customerEmail: 'aarav@example.com',
+    customerPhone: '+91 98230 11223',
+    note: 'E-Commerce Purchase #981',
+    merchantVpa: '9tepay.business@icici',
+    merchantName: '9tepay Merchant Services',
+    bankAccountId: 'bank_icici_01',
+    bankName: 'ICICI Bank',
+    status: 'PAID',
+    utrNumber: '423019827361',
+    upiString: 'upi://pay?pa=9tepay.business@icici&pn=9tepay%20Merchant%20Services&am=1499.00&cu=INR&tn=E-Commerce%20Purchase%20%23981&tr=ORD-2026-981',
+    createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+    expiresAt: new Date(Date.now() + 1000 * 60 * 300).toISOString(),
+    paidAt: new Date(Date.now() - 1000 * 60 * 40).toISOString(),
+    callbackUrl: 'https://shop.example.com/success',
+    webhookDelivered: true,
+  },
+  {
+    id: 'ord_live_89103',
+    orderNumber: 'ORD-2026-982',
+    amount: 499.0,
+    currency: 'INR',
+    customerName: 'Priya Patel',
+    customerEmail: 'priya@example.com',
+    customerPhone: '+91 98760 54321',
+    note: 'Monthly Starter Subscription',
+    merchantVpa: '9tepay.business@icici',
+    merchantName: '9tepay Merchant Services',
+    bankAccountId: 'bank_icici_01',
+    bankName: 'ICICI Bank',
+    status: 'PAID',
+    utrNumber: '423089761234',
+    upiString: 'upi://pay?pa=9tepay.business@icici&pn=9tepay%20Merchant%20Services&am=499.00&cu=INR&tn=Monthly%20Starter%20Subscription&tr=ORD-2026-982',
+    createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+    expiresAt: new Date(Date.now() + 1000 * 60 * 200).toISOString(),
+    paidAt: new Date(Date.now() - 1000 * 60 * 115).toISOString(),
+    callbackUrl: 'https://shop.example.com/success',
+    webhookDelivered: true,
+  },
+  {
+    id: 'ord_live_89104',
+    orderNumber: 'ORD-2026-983',
+    amount: 2850.0,
+    currency: 'INR',
+    customerName: 'Vikram Malhotra',
+    customerEmail: 'vikram@example.com',
+    customerPhone: '+91 97110 33445',
+    note: 'Custom Electronics Kit',
+    merchantVpa: '9tepay.business@icici',
+    merchantName: '9tepay Merchant Services',
+    bankAccountId: 'bank_icici_01',
+    bankName: 'ICICI Bank',
+    status: 'PENDING',
+    upiString: 'upi://pay?pa=9tepay.business@icici&pn=9tepay%20Merchant%20Services&am=2850.00&cu=INR&tn=Custom%20Electronics%20Kit&tr=ORD-2026-983',
+    createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+    expiresAt: new Date(Date.now() + 1000 * 60 * 10).toISOString(),
+    callbackUrl: 'https://shop.example.com/success',
+    webhookDelivered: false,
+  },
+];
+
+const SEED_BANK_ACCOUNTS: BankAccountQR[] = [
+  {
+    id: 'bank_icici_01',
+    bankName: 'ICICI Bank',
+    accountHolder: '9tepay Merchant Services',
+    accountNumber: '919876543210',
+    ifsc: 'ICIC0000102',
+    vpa: '9tepay.business@icici',
+    qrTitle: 'Primary Retail Instant QR',
+    qrType: 'dynamic_intent',
+    qrColor: '#10b981',
+    isPrimary: true,
+    isActive: true,
+    dailyLimit: 200000,
+    dailyVolume: 4848,
+    totalSettled: 184500,
+    routingWeight: 5,
+    createdAt: '2026-08-01T10:00:00.000Z',
+  },
+  {
+    id: 'bank_hdfc_02',
+    bankName: 'HDFC Bank',
+    accountHolder: '9tepay Merchant Services',
+    accountNumber: '50100492817263',
+    ifsc: 'HDFC0000060',
+    vpa: '9tepay.settle@hdfcbank',
+    qrTitle: 'Commercial High-Volume QR',
+    qrType: 'dynamic_intent',
+    qrColor: '#3b82f6',
+    isPrimary: false,
+    isActive: true,
+    dailyLimit: 500000,
+    dailyVolume: 0,
+    totalSettled: 92300,
+    routingWeight: 3,
+    createdAt: '2026-08-10T12:00:00.000Z',
+  },
+  {
+    id: 'bank_sbi_03',
+    bankName: 'State Bank of India',
+    accountHolder: '9tepay Merchant Services',
+    accountNumber: '308492019482',
+    ifsc: 'SBIN0000456',
+    vpa: '9tepay.vip@sbi',
+    qrTitle: 'VIP High-Ticket Soundbox',
+    qrType: 'static_soundbox',
+    qrColor: '#8b5cf6',
+    isPrimary: false,
+    isActive: true,
+    dailyLimit: 1000000,
+    dailyVolume: 0,
+    totalSettled: 412000,
+    routingWeight: 2,
+    createdAt: '2026-08-15T15:30:00.000Z',
+  },
+  {
+    id: 'bank_axis_04',
+    bankName: 'Axis Bank',
+    accountHolder: '9tepay Merchant Services',
+    accountNumber: '91802938472910',
+    ifsc: 'UTIB0000142',
+    vpa: '9tepay.corp@okaxis',
+    qrTitle: 'Reserve Backup Gateway',
+    qrType: 'custom_branding',
+    qrColor: '#f59e0b',
+    isPrimary: false,
+    isActive: false,
+    dailyLimit: 300000,
+    dailyVolume: 0,
+    totalSettled: 35000,
+    routingWeight: 1,
+    createdAt: '2026-08-20T08:45:00.000Z',
+  },
+];
+
+const DEFAULT_PROFILE: MerchantProfile = {
+  businessName: '9tepay Merchant Services',
+  vpa: '9tepay.business@icici',
+  phone: '+91 98765 43210',
+  email: 'merchant@9tepay.com',
+  apiKey: 'pi_live_9b4e872c019a8f23',
+  apiSecret: 'sk_live_65a7d903e14fbc9081',
+  webhookUrl: 'https://shop.example.com/api/webhook/upi-callback',
+  webhookSecret: 'whsec_live_99a8b7c6d5e4f3a2',
+  autoApproveUtr: true,
+  settlementRate: 0.0,
+  routingStrategy: 'smart_round_robin',
+  requireStrictUtrFormat: true,
+  preventDuplicateUtr: true,
+};
+
+const DEFAULT_USER: User = {
+  id: 'usr_merchant_01',
+  name: 'Abhay Sharma',
+  email: 'merchant@9tepay.com',
+  phone: '+91 98765 43210',
+  role: 'merchant',
+  businessName: '9tepay Merchant Services',
+  vpa: '9tepay.business@icici',
+  status: 'active',
+  createdAt: '2026-08-01T10:00:00.000Z',
+};
+
 export function App() {
   const initialUrlOrderId = getOrderIdFromUrl();
 
@@ -55,10 +226,8 @@ export function App() {
       if (saved) {
         return JSON.parse(saved);
       }
-    } catch {
-      // ignore
-    }
-    return null;
+    } catch {}
+    return DEFAULT_USER;
   });
 
   const [activeView, setActiveView] = useState<
@@ -73,36 +242,100 @@ export function App() {
         const u = JSON.parse(saved);
         return u.role === 'admin' ? 'admin' : 'dashboard';
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
     return 'auth';
   });
 
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [bankAccounts, setBankAccounts] = useState<BankAccountQR[]>([]);
-  const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([]);
-  const [profile, setProfile] = useState<MerchantProfile>({
-    businessName: '9tepay Merchant Services',
-    vpa: '9tepay.business@icici',
-    phone: '+91 98765 43210',
-    email: 'merchant@9tepay.com',
-    apiKey: 'pi_live_9b4e872c019a8f23',
-    apiSecret: 'sk_live_65a7d903e14fbc9081',
-    webhookUrl: 'https://shop.example.com/api/webhook/upi-callback',
-    webhookSecret: 'whsec_live_99a8b7c6d5e4f3a2',
-    autoApproveUtr: true,
-    settlementRate: 0.0,
-    routingStrategy: 'smart_round_robin',
-    requireStrictUtrFormat: true,
-    preventDuplicateUtr: true,
+  const [orders, setOrders] = useState<Order[]>(() => {
+    try {
+      const saved = localStorage.getItem('9tepay_orders');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return SEED_ORDERS;
   });
-  const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
+
+  const [bankAccounts, setBankAccounts] = useState<BankAccountQR[]>(() => {
+    try {
+      const saved = localStorage.getItem('9tepay_bank_accounts');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return SEED_BANK_ACCOUNTS;
+  });
+
+  const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>(() => {
+    try {
+      const saved = localStorage.getItem('9tepay_sec_events');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+
+  const [profile, setProfile] = useState<MerchantProfile>(() => {
+    try {
+      const saved = localStorage.getItem('9tepay_profile');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {}
+    return DEFAULT_PROFILE;
+  });
+
+  const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>(() => {
+    try {
+      const saved = localStorage.getItem('9tepay_webhook_logs');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isLoadingCheckout, setIsLoadingCheckout] = useState<boolean>(Boolean(initialUrlOrderId));
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
-  // Fetch initial backend state
+  // Sync state to LocalStorage so data is NEVER lost on page refresh
+  useEffect(() => {
+    if (currentUser) {
+      try { localStorage.setItem('9tepay_user', JSON.stringify(currentUser)); } catch {}
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (orders.length > 0) {
+      try { localStorage.setItem('9tepay_orders', JSON.stringify(orders)); } catch {}
+    }
+  }, [orders]);
+
+  useEffect(() => {
+    if (bankAccounts.length > 0) {
+      try { localStorage.setItem('9tepay_bank_accounts', JSON.stringify(bankAccounts)); } catch {}
+    }
+  }, [bankAccounts]);
+
+  useEffect(() => {
+    try { localStorage.setItem('9tepay_profile', JSON.stringify(profile)); } catch {}
+  }, [profile]);
+
+  useEffect(() => {
+    try { localStorage.setItem('9tepay_sec_events', JSON.stringify(securityEvents)); } catch {}
+  }, [securityEvents]);
+
+  useEffect(() => {
+    try { localStorage.setItem('9tepay_webhook_logs', JSON.stringify(webhookLogs)); } catch {}
+  }, [webhookLogs]);
+
+  // Fetch initial backend state & smartly merge with local state
   const refreshAll = async () => {
     try {
       const [ordersRes, profileRes, webhookRes, authRes, banksRes, secRes] = await Promise.all([
@@ -114,41 +347,55 @@ export function App() {
         safeFetch<SecurityEvent[]>('/api/security/events'),
       ]);
 
-      if (ordersRes.ok && Array.isArray(ordersRes.data)) {
-        setOrders(ordersRes.data);
-        if (ordersRes.data.length > 0 && !selectedOrder) {
-          const pending = ordersRes.data.find((o: Order) => o.status === 'PENDING') || ordersRes.data[0];
-          setSelectedOrder(pending);
-        }
+      if (ordersRes.ok && Array.isArray(ordersRes.data) && ordersRes.data.length > 0) {
+        setOrders((prev) => {
+          const map = new Map<string, Order>();
+          prev.forEach((o) => map.set(o.id, o));
+          ordersRes.data.forEach((o: Order) => {
+            const existing = map.get(o.id);
+            // Don't downgrade PAID order to PENDING
+            if (!existing || existing.status === 'PENDING' || o.status === 'PAID') {
+              map.set(o.id, o);
+            }
+          });
+          const merged = Array.from(map.values());
+          try { localStorage.setItem('9tepay_orders', JSON.stringify(merged)); } catch {}
+          return merged;
+        });
+      }
+
+      if (banksRes.ok && Array.isArray(banksRes.data) && banksRes.data.length > 0) {
+        setBankAccounts((prev) => {
+          const map = new Map<string, BankAccountQR>();
+          prev.forEach((b) => map.set(b.id, b));
+          banksRes.data.forEach((b: BankAccountQR) => map.set(b.id, b));
+          const merged = Array.from(map.values());
+          try { localStorage.setItem('9tepay_bank_accounts', JSON.stringify(merged)); } catch {}
+          return merged;
+        });
       }
 
       if (profileRes.ok && profileRes.data) {
         setProfile(profileRes.data);
       }
 
-      if (webhookRes.ok && Array.isArray(webhookRes.data)) {
+      if (webhookRes.ok && Array.isArray(webhookRes.data) && webhookRes.data.length > 0) {
         setWebhookLogs(webhookRes.data);
       }
 
-      if (banksRes.ok && Array.isArray(banksRes.data)) {
-        setBankAccounts(banksRes.data);
-      }
-
-      if (secRes.ok && Array.isArray(secRes.data)) {
+      if (secRes.ok && Array.isArray(secRes.data) && secRes.data.length > 0) {
         setSecurityEvents(secRes.data);
       }
 
       if (authRes.ok) {
         if (authRes.data?.user) {
           setCurrentUser(authRes.data.user);
-          try {
-            localStorage.setItem('9tepay_user', JSON.stringify(authRes.data.user));
-          } catch {}
-        } else {
-          const saved = localStorage.getItem('9tepay_user');
-          if (!saved) {
-            setCurrentUser(null);
-          }
+        } else if (currentUser) {
+          // Keep server session active with logged-in merchant user
+          safeFetch('/api/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ emailOrPhone: currentUser.email, role: currentUser.role }),
+          }).catch(() => {});
         }
       }
     } catch (err) {
@@ -159,33 +406,40 @@ export function App() {
   const loadCheckoutOrder = async (orderIdToLoad: string) => {
     setIsLoadingCheckout(true);
     setCheckoutError(null);
+
+    // 1. Memory check
+    const localMatch = orders.find(
+      (o) => o.id === orderIdToLoad || o.orderNumber === orderIdToLoad
+    );
+    if (localMatch) {
+      setSelectedOrder(localMatch);
+      setIsLoadingCheckout(false);
+      return;
+    }
+
+    // 2. LocalStorage check
+    try {
+      const savedOrders = localStorage.getItem('9tepay_orders');
+      if (savedOrders) {
+        const parsed: Order[] = JSON.parse(savedOrders);
+        const found = parsed.find(
+          (o) => o.id === orderIdToLoad || o.orderNumber === orderIdToLoad
+        );
+        if (found) {
+          setSelectedOrder(found);
+          setIsLoadingCheckout(false);
+          return;
+        }
+      }
+    } catch {}
+
+    // 3. API server check
     try {
       const res = await safeFetch<Order>(`/api/orders/${orderIdToLoad}`);
       if (res.ok && res.data && res.data.id) {
         setSelectedOrder(res.data);
       } else {
-        const localMatch = orders.find(
-          (o) => o.id === orderIdToLoad || o.orderNumber === orderIdToLoad
-        );
-        if (localMatch) {
-          setSelectedOrder(localMatch);
-        } else {
-          try {
-            const savedOrders = localStorage.getItem('9tepay_orders');
-            if (savedOrders) {
-              const parsed: Order[] = JSON.parse(savedOrders);
-              const found = parsed.find(
-                (o) => o.id === orderIdToLoad || o.orderNumber === orderIdToLoad
-              );
-              if (found) {
-                setSelectedOrder(found);
-                setIsLoadingCheckout(false);
-                return;
-              }
-            }
-          } catch {}
-          setCheckoutError(`Payment link "${orderIdToLoad}" not found or has expired.`);
-        }
+        setCheckoutError(`Payment link "${orderIdToLoad}" not found or has expired.`);
       }
     } catch (err) {
       console.error('Failed to load checkout order from URL:', err);
