@@ -401,7 +401,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
                   <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
-                  1-Click Mobile Deeplink Intents
+                  Option A: 1-Click Mobile App Intents
                 </span>
                 <span className="text-[10px] text-slate-500 font-medium">Opens installed UPI app</span>
               </div>
@@ -461,6 +461,41 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                   </div>
                   <span>BHIM UPI</span>
                 </a>
+              </div>
+
+              {/* Direct VPA Fallback Card if Paytm / PhonePe blocks intent */}
+              <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-3.5 space-y-2 mt-3">
+                <div className="flex items-start gap-2 text-amber-300 font-semibold text-xs">
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span>Paytm / PhonePe Intent Error Solution</span>
+                    <p className="text-[11px] text-amber-200/80 font-normal mt-0.5 leading-relaxed">
+                      If Paytm says <em>"Unverified merchant can't accept intent payments"</em>, copy the VPA below and send money directly via <strong>"Pay to UPI ID"</strong> in your bank app:
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between bg-slate-950/80 border border-amber-500/30 rounded-xl px-3 py-2">
+                  <div className="font-mono text-xs text-amber-200 font-bold truncate">
+                    {order.merchantVpa}
+                  </div>
+                  <button
+                    onClick={handleCopyVpa}
+                    className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] px-3 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer shrink-0 ml-2"
+                  >
+                    {copiedVpa ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Copied VPA</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy VPA</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
