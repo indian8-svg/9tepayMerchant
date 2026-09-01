@@ -9,11 +9,11 @@ export function generateUpiString(config: UpilinkConfig): string {
   const cleanVpa = merchantVpa.trim();
   const cleanName = encodeURIComponent(merchantName.trim());
   const cleanAmount = Number(amount).toFixed(2);
-  const cleanNote = encodeURIComponent(note?.trim() || `Order ${orderNumber}`);
-  const cleanTr = encodeURIComponent(orderNumber.trim());
+  const cleanNote = encodeURIComponent(note?.trim() || `${orderNumber}`);
 
-  // Clean standard NPCI P2P/P2M compatible string
-  return `upi://pay?pa=${cleanVpa}&pn=${cleanName}&am=${cleanAmount}&cu=INR&tn=${cleanNote}&tr=${cleanTr}`;
+  // Clean NPCI URI without forcing restricted merchant transaction parameters (tr/mc)
+  // This allows Paytm, PhonePe, Google Pay & BHIM to process payments for both personal and merchant VPAs without "unverified merchant" errors.
+  return `upi://pay?pa=${cleanVpa}&pn=${cleanName}&am=${cleanAmount}&cu=INR&tn=${cleanNote}`;
 }
 
 export interface AppDeeplinks {
