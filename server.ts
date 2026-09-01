@@ -538,55 +538,105 @@ app.post(["/api/auth/login", "/auth/login.php", "/api/login", "/auth/login"], (r
 });
 
 app.post(["/api/auth/register", "/auth/register.php", "/api/register", "/auth/register"], (req, res) => {
-  const { businessName, ownerName, email, phone, vpa, bankAccount, ifsc } = req.body;
+  try {
+    const { businessName, ownerName, email, phone, vpa, bankAccount, ifsc } = req.body || {};
 
-  if (!businessName || !email || !vpa) {
-    return res.status(400).json({ success: false, error: "Business name, email, and UPI VPA are required." });
+    if (!businessName || !email || !vpa) {
+      return res.status(400).json({ success: false, error: "Business name, email, and UPI VPA are required." });
+    }
+
+    const cleanVpa = vpa.trim().toLowerCase();
+    const cleanBusinessName = businessName.trim();
+    const cleanEmail = email.trim();
+    const cleanPhone = phone?.trim() || "+91 98000 00000";
+    const cleanOwner = ownerName?.trim() || cleanBusinessName;
+    const cleanBankAcc = bankAccount?.trim() || "919000000000";
+    const cleanIfsc = ifsc?.trim().toUpperCase() || "ICIC0000102";
+
+    const newMerchId = `merch_live_${Math.random().toString(36).substring(2, 8)}`;
+    const newMerchant: MerchantListItem = {
+      id: newMerchId,
+      businessName: cleanBusinessName,
+      ownerName: cleanOwner,
+      email: cleanEmail,
+      phone: cleanPhone,
+      vpa: cleanVpa,
+      bankAccount: cleanBankAcc,
+      ifsc: cleanIfsc,
+      commissionRate: 0.0,
+      status: "active",
+      totalVolume: 0.0,
+      totalOrders: 0,
+      createdAt: new Date().toISOString(),
+    };
+
+    merchantsList.unshift(newMerchant);
+
+    // Create primary bank account for new merchant
+    const newBankId = `bank_${Math.random().toString(36).substring(2, 8)}`;
+    const newBankAccount: BankAccountItem = {
+      id: newBankId,
+      bankName: cleanIfsc.startsWith("HDFC")
+        ? "HDFC Bank"
+        : cleanIfsc.startsWith("SBIN")
+        ? "State Bank of India"
+        : cleanIfsc.startsWith("UTIB")
+        ? "Axis Bank"
+        : "ICICI Bank",
+      accountHolder: cleanBusinessName,
+      accountNumber: cleanBankAcc,
+      ifsc: cleanIfsc,
+      vpa: cleanVpa,
+      qrTitle: `${cleanBusinessName} Instant QR`,
+      qrType: "dynamic_intent",
+      qrColor: "#10b981",
+      isPrimary: true,
+      isActive: true,
+      dailyLimit: 500000,
+      dailyVolume: 0,
+      totalSettled: 0,
+      routingWeight: 5,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Make other accounts non-primary if desired
+    bankAccounts.forEach((b) => (b.isPrimary = false));
+    bankAccounts.unshift(newBankAccount);
+
+    // Switch merchantProfile
+    merchantProfile.businessName = cleanBusinessName;
+    merchantProfile.vpa = cleanVpa;
+    merchantProfile.email = cleanEmail;
+    merchantProfile.phone = cleanPhone;
+    merchantProfile.apiKey = `pi_live_${Math.random().toString(36).substring(2, 16)}`;
+    merchantProfile.apiSecret = `sk_live_${Math.random().toString(36).substring(2, 18)}`;
+
+    currentUser = {
+      id: newMerchant.id,
+      name: newMerchant.ownerName,
+      email: newMerchant.email,
+      phone: newMerchant.phone,
+      role: "merchant",
+      businessName: newMerchant.businessName,
+      vpa: newMerchant.vpa,
+      status: newMerchant.status,
+      createdAt: newMerchant.createdAt,
+    };
+
+    return res.status(201).json({
+      success: true,
+      message: "Merchant registered successfully with instant VPA routing.",
+      user: currentUser,
+      profile: merchantProfile,
+      token: `payindia_session_${newMerchId}`,
+    });
+  } catch (err: any) {
+    console.error("Error during merchant registration:", err);
+    return res.status(500).json({
+      success: false,
+      error: err?.message || "Internal server error during registration",
+    });
   }
-
-  const newMerchId = `merch_live_${Math.random().toString(36).substring(2, 8)}`;
-  const newMerchant: MerchantListItem = {
-    id: newMerchId,
-    businessName: businessName.trim(),
-    ownerName: ownerName?.trim() || businessName.trim(),
-    email: email.trim(),
-    phone: phone?.trim() || "+91 98000 00000",
-    vpa: vpa.trim().toLowerCase(),
-    bankAccount: bankAccount?.trim() || "919000000000",
-    ifsc: ifsc?.trim().toUpperCase() || "HDFC0000001",
-    commissionRate: 0.0,
-    status: "active",
-    totalVolume: 0.0,
-    totalOrders: 0,
-    createdAt: new Date().toISOString(),
-  };
-
-  merchantsList.unshift(newMerchant);
-
-  // Switch current profile to newly registered merchant
-  merchantProfile.businessName = newMerchant.businessName;
-  merchantProfile.vpa = newMerchant.vpa;
-  merchantProfile.email = newMerchant.email;
-  merchantProfile.phone = newMerchant.phone;
-
-  currentUser = {
-    id: newMerchant.id,
-    name: newMerchant.ownerName,
-    email: newMerchant.email,
-    phone: newMerchant.phone,
-    role: "merchant",
-    businessName: newMerchant.businessName,
-    vpa: newMerchant.vpa,
-    status: newMerchant.status,
-    createdAt: newMerchant.createdAt,
-  };
-
-  res.status(201).json({
-    success: true,
-    message: "Merchant registered successfully with instant VPA routing.",
-    user: currentUser,
-    token: "payindia_session_registered",
-  });
 });
 
 app.post(["/api/auth/logout", "/auth/logout.php", "/api/logout", "/auth/logout"], (_req, res) => {

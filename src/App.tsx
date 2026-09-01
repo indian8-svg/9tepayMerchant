@@ -785,6 +785,43 @@ export function App() {
 
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
+
+    if (user.role === 'merchant') {
+      setProfile((prev) => ({
+        ...prev,
+        businessName: user.businessName || prev.businessName,
+        vpa: user.vpa || prev.vpa,
+        email: user.email || prev.email,
+        phone: user.phone || prev.phone,
+      }));
+
+      if (user.vpa) {
+        setBankAccounts((prev) => {
+          const exists = prev.some((b) => b.vpa.toLowerCase() === user.vpa.toLowerCase());
+          if (exists) return prev;
+          const newAccount: BankAccountQR = {
+            id: `bank_${Math.random().toString(36).substring(2, 7)}`,
+            bankName: 'Direct Settlement Bank',
+            accountHolder: user.businessName || 'Merchant Account',
+            accountNumber: '919000000000',
+            ifsc: 'ICIC0000102',
+            vpa: user.vpa,
+            qrTitle: `${user.businessName} Instant Settlement QR`,
+            qrType: 'dynamic_intent',
+            qrColor: '#10b981',
+            isPrimary: true,
+            isActive: true,
+            dailyLimit: 500000,
+            dailyVolume: 0,
+            totalSettled: 0,
+            routingWeight: 5,
+            createdAt: new Date().toISOString(),
+          };
+          return [newAccount, ...prev.map((b) => ({ ...b, isPrimary: false }))];
+        });
+      }
+    }
+
     try {
       localStorage.setItem('9tepay_user', JSON.stringify(user));
     } catch {
