@@ -559,9 +559,10 @@ export function App() {
   const effectiveView = !currentUser && !isPublicCheckout ? 'auth' : activeView;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
-      {/* Top Header Navbar */}
-      <header className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md sticky top-0 z-40 shadow-xs">
+    <div className={effectiveView === 'checkout' ? "min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white" : "min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-blue-600 selection:text-white"}>
+      {/* Top Header Navbar - Hidden in Standalone Checkout Mode */}
+      {effectiveView !== 'checkout' && (
+        <header className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md sticky top-0 z-40 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm shrink-0">
@@ -673,21 +674,23 @@ export function App() {
           </div>
         </div>
       </header>
+      )}
 
       {/* Main Content Area */}
-      <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 flex-1">
+      <main className={effectiveView === 'checkout' ? "w-full max-w-4xl mx-auto px-4 py-6 sm:py-10 flex-1 flex flex-col justify-center" : "max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 flex-1"}>
         {!currentUser ? (
           /* When signed out: ONLY show Public Checkout if viewing order or AuthPortal Login */
           isPublicCheckout ? (
             isLoadingCheckout ? (
               <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
                 <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-sm font-semibold text-slate-700 font-sans">Loading Secure Payment Checkout...</p>
+                <p className="text-sm font-semibold text-slate-300 font-sans">Loading Secure Payment Checkout...</p>
               </div>
             ) : selectedOrder ? (
               <HostedCheckout
                 order={selectedOrder}
                 bankAccounts={bankAccounts}
+                currentUser={currentUser}
                 onPaymentSuccess={handlePaymentSuccess}
                 onBackToDashboard={() => handleViewChange('auth')}
               />
@@ -766,12 +769,13 @@ export function App() {
               isLoadingCheckout ? (
                 <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
                   <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-sm font-semibold text-slate-700 font-sans">Loading Secure Payment Checkout...</p>
+                  <p className="text-sm font-semibold text-slate-300 font-sans">Loading Secure Payment Checkout...</p>
                 </div>
               ) : selectedOrder ? (
                 <HostedCheckout
                   order={selectedOrder}
                   bankAccounts={bankAccounts}
+                  currentUser={currentUser}
                   onPaymentSuccess={handlePaymentSuccess}
                   onBackToDashboard={() => handleViewChange(currentUser.role === 'admin' ? 'admin' : 'dashboard')}
                 />
@@ -809,26 +813,28 @@ export function App() {
         )}
       </main>
 
-      {/* Bottom Footer */}
-      <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-800">9tepay Merchant Gateway</span>
-            <span>&bull;</span>
-            <span className="font-medium text-blue-700">Zero-Gateway-Fee UPI Processing Engine</span>
+      {/* Bottom Footer - Hidden in Standalone Checkout Mode */}
+      {effectiveView !== 'checkout' && (
+        <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500 shadow-2xs">
+          <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-800">9tepay Merchant Gateway</span>
+              <span>&bull;</span>
+              <span className="font-medium text-blue-700">Zero-Gateway-Fee UPI Processing Engine</span>
+            </div>
+            <div className="text-[11px] text-slate-500 flex items-center gap-3 font-sans">
+              {currentUser ? (
+                <>
+                  <span>Account: <strong className="text-slate-800">{currentUser.businessName}</strong></span>
+                  <span>Role: <strong className="text-blue-700 uppercase font-bold">{currentUser.role}</strong></span>
+                </>
+              ) : (
+                <span>Session: <strong className="text-slate-600">Signed Out</strong></span>
+              )}
+            </div>
           </div>
-          <div className="text-[11px] text-slate-500 flex items-center gap-3 font-sans">
-            {currentUser ? (
-              <>
-                <span>Account: <strong className="text-slate-800">{currentUser.businessName}</strong></span>
-                <span>Role: <strong className="text-blue-700 uppercase font-bold">{currentUser.role}</strong></span>
-              </>
-            ) : (
-              <span>Session: <strong className="text-slate-600">Signed Out</strong></span>
-            )}
-          </div>
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 }

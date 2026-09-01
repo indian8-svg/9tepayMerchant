@@ -22,7 +22,7 @@ import {
   Eye,
   X,
 } from 'lucide-react';
-import { Order, BankAccountQR } from '../types';
+import { Order, BankAccountQR, User } from '../types';
 import { generateAppDeeplinks, formatCurrency } from '../utils/upi';
 import { safeFetch } from '../utils/api';
 
@@ -31,6 +31,7 @@ interface HostedCheckoutProps {
   bankAccounts?: BankAccountQR[];
   onPaymentSuccess: (updatedOrder: Order) => void;
   onBackToDashboard?: () => void;
+  currentUser?: User | null;
 }
 
 export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
@@ -38,6 +39,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
   bankAccounts = [],
   onPaymentSuccess,
   onBackToDashboard,
+  currentUser,
 }) => {
   const [order, setOrder] = useState<Order>(initialOrder);
   const [copiedVpa, setCopiedVpa] = useState(false);
@@ -174,24 +176,24 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Top Banner & Context Switcher */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-            Hosted UPI Checkout Experience
-          </span>
-        </div>
-        {onBackToDashboard && (
+    <div className="max-w-4xl w-full mx-auto space-y-6">
+      {/* Top Banner & Context Switcher (Shown ONLY when logged-in merchant previews checkout) */}
+      {currentUser && onBackToDashboard && (
+        <div className="flex items-center justify-between bg-slate-900/80 border border-slate-800 rounded-2xl px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+              Merchant Preview Mode
+            </span>
+          </div>
           <button
             onClick={onBackToDashboard}
-            className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
+            className="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg border border-slate-700"
           >
-            <span>&larr; Back to Merchant Dashboard</span>
+            <span>&larr; Back to Dashboard</span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {order.status === 'PAID' ? (
         /* Payment Success Receipt View */
@@ -250,7 +252,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            {onBackToDashboard && (
+            {currentUser && onBackToDashboard ? (
               <button
                 onClick={onBackToDashboard}
                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-950/40 cursor-pointer flex items-center gap-1.5"
@@ -258,6 +260,10 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
                 <span>Return to Merchant Center</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
+            ) : (
+              <div className="text-xs text-slate-400 bg-slate-950/60 px-4 py-2 rounded-xl border border-slate-800">
+                Transaction Completed. You can safely close this window.
+              </div>
             )}
           </div>
         </div>
