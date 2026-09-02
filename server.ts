@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 import helmet from "helmet";
 import dotenv from "dotenv";
 
@@ -261,7 +262,6 @@ app.use((req, res, next) => {
 
   // Dynamic HTTP Security Headers (OWASP Security Standards)
   res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
 
@@ -1255,7 +1255,7 @@ app.get("/api/orders", requireAuth, (req, res) => {
 });
 
 // Create Order (Simulates `POST /api/create-order` endpoint from Lolapay/PayIndia documentation)
-app.post("/api/orders", requireAuth, (req, res) => {
+app.post(["/api/orders", "/api/orders/create", "/api/create-order"], requireAuth, (req, res) => {
   const { amount, orderId, customerName, customerEmail, customerPhone, note, callbackUrl, bankAccountId } = req.body;
 
   if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
@@ -1750,7 +1750,6 @@ app.post("/api/webhooks/test-dispatch", requireAuth, async (req, res) => {
 
     const payloadString = JSON.stringify(mockPayload);
     
-    const crypto = require("crypto");
     const signature = crypto
       .createHmac("sha256", userProf.webhookSecret || "whsec_default")
       .update(payloadString)
