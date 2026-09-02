@@ -1,6 +1,10 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import helmet from "helmet";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 declare global {
   namespace Express {
@@ -277,6 +281,17 @@ app.use("/api", (_req, res, next) => {
   res.setHeader("Content-Type", "application/json");
   next();
 });
+
+// Primary Health Check endpoints for Cloud Run ingress and monitoring
+app.get(["/api/health", "/health", "/_health", "/ping"], (_req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "9tepay-merchant-gateway",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.use((req, res, next) => {
   if (req.url.endsWith(".php")) {
     res.setHeader("Content-Type", "application/json");
@@ -1920,21 +1935,38 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
+    // Robust resolution of dist directory in production containers
+    let distPath = path.resolve(process.cwd(), "dist");
+    if (!fs.existsSync(path.join(distPath, "index.html"))) {
+      if (fs.existsSync(path.resolve(__dirname, "index.html"))) {
+        distPath = path.resolve(__dirname);
+      } else if (fs.existsSync(path.resolve(__dirname, "dist", "index.html"))) {
+        distPath = path.resolve(__dirname, "dist");
+      }
+    }
+
     app.use(express.static(distPath));
     app.get("*", (_req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+      const indexPath = path.join(distPath, "index.html");
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(404).send("Application build files not found. Please verify the build step completed.");
+      }
     });
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on http://0.0.0.0:${PORT} (NODE_ENV=${process.env.NODE_ENV || "development"})`);
   });
 }
 
 // In standard container / local Node.js environments, start the HTTP listener
 if (!process.env.VERCEL) {
-  startServer();
+  startServer().catch((err) => {
+    console.error("Fatal error starting server:", err);
+    process.exit(1);
+  });
 }
 
 export { app };
