@@ -15,7 +15,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { User } from '../types';
-import { safeFetch } from '../utils/api';
+import { safeFetch, formatErrorMessage } from '../utils/api';
 import { Logo } from './Logo';
 
 interface AuthPortalProps {
@@ -106,11 +106,11 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
         return;
       }
 
-      const apiError: any = res.data?.error;
-      const errorText = typeof apiError === "string" ? apiError : (typeof apiError?.message === "string" ? apiError.message : "Invalid email/phone or password. Please verify your credentials.");
+      const rawErr = res.data?.error || res.error;
+      const errorText = formatErrorMessage(rawErr, "Invalid email/phone or passcode. Please verify your credentials.");
       setErrorMsg(errorText);
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Login failed. Please check your network connection and try again.');
+      setErrorMsg(formatErrorMessage(err, 'Login failed. Please check your network connection and try again.'));
     } finally {
       setIsLoading(false);
     }
@@ -162,11 +162,11 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
         return;
       }
 
-      const regApiError: any = res.data?.error;
-      const regErrorText = typeof regApiError === "string" ? regApiError : (typeof regApiError?.message === "string" ? regApiError.message : "Registration failed. Please verify the submitted details.");
+      const rawRegErr = res.data?.error || res.error;
+      const regErrorText = formatErrorMessage(rawRegErr, "Registration failed. Please verify the submitted details.");
       setErrorMsg(regErrorText);
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Registration error. Please check your connection and try again.');
+      setErrorMsg(formatErrorMessage(err, 'Registration error. Please check your connection and try again.'));
     } finally {
       setIsLoading(false);
     }
@@ -510,9 +510,12 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                   value={adminPasscode}
                   onChange={(e) => setAdminPasscode(e.target.value)}
                   required
-                  placeholder="Enter administrator passcode"
+                  placeholder="admin1234"
                   className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs sm:text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all font-mono"
                 />
+                <p className="text-[11px] text-slate-500 mt-1.5">
+                  Default passcode: <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-800 font-mono font-semibold">admin1234</code> or your custom configured key.
+                </p>
               </div>
 
               <button
