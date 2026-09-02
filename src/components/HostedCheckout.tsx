@@ -488,7 +488,7 @@ export const HostedCheckout: React.FC<HostedCheckoutProps> = ({
           setIsAwaitingApproval(true);
         }
       } else {
-        let rawErr = res.data?.error || res.data?.message || res.error || 'Could not verify transaction.';
+        let rawErr = String((res.data?.error as any)?.message || res.data?.error || res.data?.message || res.error || "Could not verify transaction.");
         if (typeof rawErr === 'string' && (rawErr.startsWith('{') || rawErr.startsWith('['))) {
           try {
             const parsed = JSON.parse(rawErr);

@@ -1149,7 +1149,7 @@ export function App() {
                           Navigation Menu
                         </span>
                         <span className="text-[10px] font-semibold text-slate-500 bg-slate-200/60 px-2 py-0.5 rounded-full capitalize">
-                          {currentUser.role}
+                          {typeof currentUser?.role === "string" ? currentUser.role : "User"}
                         </span>
                       </div>
 
@@ -1353,7 +1353,7 @@ export function App() {
                       <div className="p-2 bg-slate-50 border-t border-slate-100 space-y-1">
                         <div className="px-2.5 py-1.5 flex items-center justify-between text-xs">
                           <span className="font-semibold text-slate-800 truncate max-w-[130px]">
-                            {currentUser.name}
+                            {typeof currentUser.name === "string" ? currentUser.name : "User"}
                           </span>
                           <span className="text-[10px] text-slate-500 truncate">
                             {currentUser.email}
@@ -1381,7 +1381,7 @@ export function App() {
                   title="View Profile Details"
                 >
                   <span className={`w-2 h-2 rounded-full ${currentUser.role === 'admin' ? 'bg-indigo-500' : 'bg-emerald-500'} animate-pulse`}></span>
-                  <span className="font-semibold text-slate-800 truncate max-w-[120px]">{currentUser.name}</span>
+                  <span className="font-semibold text-slate-800 truncate max-w-[120px]">{typeof currentUser.name === "string" ? currentUser.name : "User"}</span>
                 </button>
               </div>
             ) : (
@@ -1651,8 +1651,8 @@ export function App() {
             <div className="text-[11px] text-slate-500 flex items-center gap-3 font-sans">
               {currentUser ? (
                 <>
-                  <span>Account: <strong className="text-slate-800">{currentUser.businessName}</strong></span>
-                  <span>Role: <strong className="text-blue-700 uppercase font-bold">{currentUser.role}</strong></span>
+                  <span>Account: <strong className="text-slate-800">{typeof currentUser?.businessName === "string" ? currentUser.businessName : typeof currentUser?.name === "string" ? currentUser.name : "User"}</strong></span>
+                  <span>Role: <strong className="text-blue-700 uppercase font-bold">{typeof currentUser?.role === "string" ? currentUser.role : "User"}</strong></span>
                 </>
               ) : (
                 <span>Session: <strong className="text-slate-600">Signed Out</strong></span>

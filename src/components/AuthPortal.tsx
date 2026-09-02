@@ -106,7 +106,9 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
         return;
       }
 
-      setErrorMsg(res.data?.error || 'Invalid email/phone or password. Please verify your credentials.');
+      const apiError: any = res.data?.error;
+      const errorText = typeof apiError === "string" ? apiError : (typeof apiError?.message === "string" ? apiError.message : "Invalid email/phone or password. Please verify your credentials.");
+      setErrorMsg(errorText);
     } catch (err: any) {
       setErrorMsg(err?.message || 'Login failed. Please check your network connection and try again.');
     } finally {
@@ -160,7 +162,9 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
         return;
       }
 
-      setErrorMsg(res.data?.error || 'Registration failed. Please verify the submitted details.');
+      const regApiError: any = res.data?.error;
+      const regErrorText = typeof regApiError === "string" ? regApiError : (typeof regApiError?.message === "string" ? regApiError.message : "Registration failed. Please verify the submitted details.");
+      setErrorMsg(regErrorText);
     } catch (err: any) {
       setErrorMsg(err?.message || 'Registration error. Please check your connection and try again.');
     } finally {

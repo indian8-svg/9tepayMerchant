@@ -271,7 +271,7 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
             {formatCurrency(totalVolume)}
           </div>
           <div className="text-[11px] text-blue-600 mt-1 flex items-center gap-1 font-medium font-mono">
-            <span>Direct to VPA: {profile?.vpa || 'Not configured'}</span>
+            <span>Direct to VPA: {typeof profile?.vpa === "string" ? profile.vpa : "Not configured"}</span>
           </div>
         </div>
 
@@ -316,7 +316,7 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
               Primary Settlement VPA
             </div>
             <div className="text-xs font-mono text-slate-800 font-bold truncate mt-1">
-              {profile?.vpa || 'Not configured'}
+              {typeof profile?.vpa === "string" ? profile.vpa : "Not configured"}
             </div>
           </div>
           <button
@@ -354,14 +354,14 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({
                 <div key={o.id} className="bg-white/90 backdrop-blur-xs border border-amber-200 rounded-xl p-3 shadow-2xs flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-mono font-bold text-slate-900">{o.orderNumber || o.id}</span>
+                      <span className="font-mono font-bold text-slate-900">{typeof o.orderNumber === "string" ? o.orderNumber : typeof o.id === "string" ? o.id : "ORD"}</span>
                       <span className="font-bold text-emerald-700">{formatCurrency(o.amount)}</span>
                     </div>
                     <div className="text-[11px] text-slate-600 mt-1">
-                      Customer: <span className="font-semibold text-slate-900">{o.customerName}</span>
+                      Customer: <span className="font-semibold text-slate-900">{typeof o.customerName === "string" ? o.customerName : "Unknown"}</span>
                     </div>
                     <div className="text-[11px] font-mono text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md mt-1.5 border border-amber-200/60 inline-block font-semibold">
-                      UTR: {o.utrNumber}
+                      UTR: {typeof o.utrNumber === "string" ? o.utrNumber : ""}
                     </div>
                   </div>
 

@@ -52,6 +52,40 @@ function extractErrorMessageFromHtml(html: string, status: number): string {
 }
 
 /**
+ * Format any arbitrary error or object safely into a string to prevent React rendering errors
+ */
+export function formatErrorMessage(raw: any, fallback = 'An unexpected error occurred'): string {
+  if (raw === null || raw === undefined) return fallback;
+  if (typeof raw === 'string') {
+    if ((raw.startsWith('{') && raw.endsWith('}')) || (raw.startsWith('[') && raw.endsWith(']'))) {
+      try {
+        const parsed = JSON.parse(raw);
+        return formatErrorMessage(parsed, fallback);
+      } catch {}
+    }
+    return raw;
+  }
+  if (typeof raw === 'number' || typeof raw === 'boolean') {
+    return String(raw);
+  }
+  if (typeof raw === 'object') {
+    if (typeof raw.message === 'string') return raw.message;
+    if (typeof raw.error === 'string') return raw.error;
+    if (typeof raw.error === 'object' && raw.error) {
+      return formatErrorMessage(raw.error, fallback);
+    }
+    if (typeof raw.detail === 'string') return raw.detail;
+    if (typeof raw.msg === 'string') return raw.msg;
+    try {
+      return JSON.stringify(raw);
+    } catch {
+      return fallback;
+    }
+  }
+  return fallback;
+}
+
+/**
  * Safe fetch that reads raw text first, validates JSON format,
  * and handles HTML error responses gracefully.
  */
@@ -128,27 +162,27 @@ export async function safeFetch<T = any>(
 
     // Check HTTP status code
     if (!response.ok) {
-      const errorMsg =
-        parsed?.error ||
-        parsed?.message ||
-        parsed?.detail ||
-        parsed?.err ||
-        `Server request failed with status ${status}.`;
+      const errorCandidate =
+        parsed?.error ??
+        parsed?.message ??
+        parsed?.detail ??
+        parsed?.err ??
+        parsed;
       return {
         ok: false,
         status,
         data: parsed,
-        error: typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg),
+        error: formatErrorMessage(errorCandidate, `Server request failed with status ${status}.`),
       };
     }
 
     // Also check if body explicitly contains { success: false } or { error: "..." }
-    if (parsed && typeof parsed === 'object' && parsed.success === false && parsed.error) {
+    if (parsed && typeof parsed === 'object' && (parsed.success === false || (parsed.error && parsed.error !== null))) {
       return {
         ok: false,
         status,
         data: parsed,
-        error: String(parsed.error),
+        error: formatErrorMessage(parsed.error || parsed.message, 'Request was not successful.'),
       };
     }
 
@@ -164,7 +198,7 @@ export async function safeFetch<T = any>(
       ok: false,
       status: 0,
       data: null,
-      error: message,
+      error: formatErrorMessage(message, 'Network connection error. Please check your internet connection.'),
     };
   }
 }

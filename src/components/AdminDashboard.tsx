@@ -113,7 +113,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ orders, onRefres
         { method: 'POST' }
       );
       if (res.ok && res.data?.success) {
-        setReconciliationMsg(res.data.message);
+        setReconciliationMsg(typeof res.data.message === "string" ? res.data.message : "Reconciliation complete.");
         if (onRefreshOrders) onRefreshOrders();
         fetchAdminData();
         setTimeout(() => setReconciliationMsg(''), 4000);
@@ -305,13 +305,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ orders, onRefres
                   <td className="py-3.5 px-4">
                     <div className="font-bold text-slate-900">{merchant.businessName}</div>
                     <div className="text-[11px] text-slate-500 font-mono">
-                      {merchant.ownerName} &bull; {merchant.email}
+                      {typeof merchant.ownerName === "string" ? merchant.ownerName : "Unknown"} &bull; {typeof merchant.email === "string" ? merchant.email : ""}
                     </div>
                   </td>
 
                   <td className="py-3.5 px-4">
                     <span className="font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[11px] font-bold">
-                      {merchant.vpa}
+                      {typeof merchant.vpa === "string" ? merchant.vpa : ""}
                     </span>
                   </td>
 

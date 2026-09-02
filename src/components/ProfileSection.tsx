@@ -73,7 +73,7 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                  {currentUser?.name || currentUser?.businessName || 'Merchant'}
+                  {typeof currentUser?.name === "string" ? currentUser.name : typeof currentUser?.businessName === "string" ? currentUser.businessName : "Merchant"}
                 </h1>
                 <span
                   className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
@@ -90,19 +90,19 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-blue-100 font-sans mt-1">
-                {currentUser.businessName || profile.businessName || '9tepay Merchant'} &bull; Direct Receiver VPA:{' '}
+                {typeof currentUser?.businessName === "string" ? currentUser.businessName : typeof profile?.businessName === "string" ? profile.businessName : "9tepay Merchant"} &bull; Direct Receiver VPA:{' '}
                 <span className="font-mono font-bold text-white bg-white/10 px-1.5 py-0.5 rounded">
-                  {currentUser.vpa || profile.vpa}
+                  {String(currentUser.vpa || profile.vpa)}
                 </span>
               </p>
               <div className="flex items-center gap-4 text-[11px] text-blue-100 font-sans mt-2">
                 <span className="flex items-center gap-1">
                   <Mail className="w-3.5 h-3.5 text-blue-200" />
-                  {currentUser.email}
+                  {String(currentUser.email)}
                 </span>
                 <span className="flex items-center gap-1">
                   <Phone className="w-3.5 h-3.5 text-blue-200" />
-                  {currentUser.phone || profile.phone || 'N/A'}
+                  {String(currentUser.phone || profile.phone || "N/A")}
                 </span>
               </div>
             </div>
@@ -146,27 +146,27 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div className="bg-slate-50/70 border border-slate-200/60 p-3.5 rounded-xl space-y-1">
               <span className="text-[11px] font-medium text-slate-500">Owner / Full Name</span>
-              <p className="font-bold text-slate-900 text-sm">{currentUser.name}</p>
+              <p className="font-bold text-slate-900 text-sm">{typeof currentUser.name === "string" ? currentUser.name : "User"}</p>
             </div>
 
             <div className="bg-slate-50/70 border border-slate-200/60 p-3.5 rounded-xl space-y-1">
               <span className="text-[11px] font-medium text-slate-500">Registered Email</span>
-              <p className="font-bold text-slate-900 text-sm truncate">{currentUser.email}</p>
+              <p className="font-bold text-slate-900 text-sm truncate">{String(currentUser.email)}</p>
             </div>
 
             <div className="bg-slate-50/70 border border-slate-200/60 p-3.5 rounded-xl space-y-1">
               <span className="text-[11px] font-medium text-slate-500">Mobile Number</span>
-              <p className="font-bold text-slate-900 text-sm">{currentUser.phone || profile.phone || 'N/A'}</p>
+              <p className="font-bold text-slate-900 text-sm">{String(currentUser.phone || profile.phone || "N/A")}</p>
             </div>
 
             <div className="bg-slate-50/70 border border-slate-200/60 p-3.5 rounded-xl space-y-1">
               <span className="text-[11px] font-medium text-slate-500">Account Role</span>
-              <p className="font-bold text-slate-900 text-sm capitalize">{currentUser.role}</p>
+              <p className="font-bold text-slate-900 text-sm capitalize">{String(currentUser.role)}</p>
             </div>
 
             <div className="bg-slate-50/70 border border-slate-200/60 p-3.5 rounded-xl space-y-1">
               <span className="text-[11px] font-medium text-slate-500">Merchant User ID</span>
-              <p className="font-mono font-bold text-slate-800 text-xs truncate">{currentUser.id}</p>
+              <p className="font-mono font-bold text-slate-800 text-xs truncate">{String(currentUser.id)}</p>
             </div>
 
             <div className="bg-slate-50/70 border border-slate-200/60 p-3.5 rounded-xl space-y-1">
@@ -214,7 +214,7 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
             <div className="flex items-center justify-between bg-slate-50/70 border border-slate-200/60 p-3.5 rounded-xl">
               <div>
                 <span className="text-[11px] font-medium text-slate-500">Business / Store Name</span>
-                <p className="font-bold text-slate-900 text-sm mt-0.5">{profile.businessName || currentUser.businessName}</p>
+                <p className="font-bold text-slate-900 text-sm mt-0.5">{typeof profile.businessName === "string" ? profile.businessName : typeof currentUser.businessName === "string" ? currentUser.businessName : "Merchant"}</p>
               </div>
               <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold rounded-lg uppercase">
                 0% Fee Settlement
@@ -224,7 +224,7 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
             <div className="flex items-center justify-between bg-slate-50/70 border border-slate-200/60 p-3.5 rounded-xl">
               <div className="space-y-0.5">
                 <span className="text-[11px] font-medium text-slate-500">Direct Receiver UPI VPA</span>
-                <p className="font-mono font-bold text-emerald-700 text-sm">{profile.vpa || currentUser.vpa}</p>
+                <p className="font-mono font-bold text-emerald-700 text-sm">{String(profile.vpa || currentUser.vpa)}</p>
               </div>
               <button
                 onClick={() => handleCopy(profile.vpa || currentUser.vpa || '', 'vpa')}

@@ -53,8 +53,12 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       return (
         <div style={{ padding: '20px', fontFamily: 'sans-serif', backgroundColor: '#fee2e2', color: '#991b1b', borderRadius: '8px', margin: '20px' }}>
           <h2 style={{ fontSize: '20px', fontWeight: 'bold' }}>Application Error Caught</h2>
-          <pre style={{ marginTop: '10px', fontSize: '12px', whiteSpace: 'pre-wrap' }}>{this.state.error?.message}</pre>
-          <pre style={{ marginTop: '10px', fontSize: '10px', whiteSpace: 'pre-wrap' }}>{this.state.error?.stack}</pre>
+          <pre style={{ marginTop: '10px', fontSize: '12px', whiteSpace: 'pre-wrap' }}>
+            {typeof this.state.error?.message === 'string' ? this.state.error.message : String(this.state.error || 'Unknown application error')}
+          </pre>
+          <pre style={{ marginTop: '10px', fontSize: '10px', whiteSpace: 'pre-wrap' }}>
+            {typeof this.state.error?.stack === 'string' ? this.state.error.stack : ''}
+          </pre>
           <button 
             onClick={this.handleReset}
             style={{ marginTop: '20px', padding: '10px 20px', backgroundColor: '#b91c1c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
