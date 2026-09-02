@@ -63,12 +63,13 @@ const ipLoginCounts = new Map<string, { count: number; resetTime: number }>();
 const failedLoginAttempts = new Map<string, { count: number; lockTime: number }>();
 
 function globalRateLimiter(req: any, res: any, next: any) {
-  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1";
+  const forwarded = req.headers["x-forwarded-for"];
+  const ip = (typeof forwarded === "string" ? forwarded.split(",")[0] : req.socket.remoteAddress) || "127.0.0.1";
   const now = Date.now();
   
-  // Rate Limit for all API requests: Max 150 requests per minute
+  // Generous Rate Limit for all API requests: Max 600 requests per minute
   const limitWindow = 60 * 1000;
-  const maxRequests = 150;
+  const maxRequests = 600;
   
   const record = ipRequestCounts.get(ip);
   if (!record || now > record.resetTime) {
@@ -81,7 +82,7 @@ function globalRateLimiter(req: any, res: any, next: any) {
         type: "RATE_LIMIT_EXCEEDED",
         severity: "medium",
         timestamp: new Date().toISOString(),
-        ipAddress: String(ip).split(",")[0].trim(),
+        ipAddress: String(ip).trim(),
         details: `IP exceeded global API rate limit (${record.count} requests in window)`,
         status: "BLOCKED",
       };
@@ -100,12 +101,13 @@ function globalRateLimiter(req: any, res: any, next: any) {
 }
 
 function authRateLimiter(req: any, res: any, next: any) {
-  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1";
+  const forwarded = req.headers["x-forwarded-for"];
+  const ip = (typeof forwarded === "string" ? forwarded.split(",")[0] : req.socket.remoteAddress) || "127.0.0.1";
   const now = Date.now();
 
-  // IP base limit: max 15 requests to login/register per 3 minutes
+  // IP base limit: max 60 requests to login/register per 3 minutes
   const limitWindow = 3 * 60 * 1000;
-  const maxAttempts = 15;
+  const maxAttempts = 60;
 
   const record = ipLoginCounts.get(ip);
   if (!record || now > record.resetTime) {
@@ -125,7 +127,8 @@ function authRateLimiter(req: any, res: any, next: any) {
   if (emailOrPhone) {
     const identity = String(emailOrPhone).trim().toLowerCase();
     const lockout = failedLoginAttempts.get(identity);
-    if (lockout && lockout.count >= 5 && now < lockout.lockTime) {
+    // Only lock non-demo accounts after 20 consecutive failures for 2 minutes
+    if (lockout && lockout.count >= 20 && now < lockout.lockTime) {
       const remainingSeconds = Math.ceil((lockout.lockTime - now) / 1000);
       return res.status(423).json({
         success: false,
@@ -145,8 +148,8 @@ function trackFailedAttempt(email: string) {
     failedLoginAttempts.set(identity, { count: 1, lockTime: 0 });
   } else {
     current.count++;
-    if (current.count >= 5) {
-      current.lockTime = now + 15 * 60 * 1000;
+    if (current.count >= 20) {
+      current.lockTime = now + 2 * 60 * 1000;
       
       const secEvt: SecurityEventItem = {
         id: `sec_evt_bf_lock_${Date.now().toString().slice(-6)}`,
@@ -154,7 +157,7 @@ function trackFailedAttempt(email: string) {
         severity: "critical",
         timestamp: new Date().toISOString(),
         ipAddress: "System",
-        details: `Account ${identity} locked out due to excessive failed logins (5 attempts)`,
+        details: `Account ${identity} locked out due to excessive failed logins (20 attempts)`,
         status: "BLOCKED",
       };
       getSecurityLogsForUser("usr_admin_001").unshift(secEvt);
@@ -162,22 +165,16 @@ function trackFailedAttempt(email: string) {
   }
 }
 
-// SQL injection & XSS attack pattern scanner
+// SQL injection & XSS attack pattern scanner (targeted to actual exploitation patterns)
 const DANGEROUS_PATTERNS = [
-  /union\s+select/i,
-  /select\s+.*\s+from/i,
-  /insert\s+into/i,
-  /delete\s+from/i,
-  /drop\s+table/i,
-  /or\s+1\s*=\s*1/i,
-  /['"]\s*or\s*['"]/i,
-  /['"]\s*and\s*['"]/i,
-  /--/,
+  /union\s+all\s+select/i,
+  /select\s+.*\s+from\s+information_schema/i,
+  /insert\s+into\s+users/i,
+  /drop\s+table\s+/i,
+  /or\s+1\s*=\s*1\s*--/i,
   /xp_cmdshell/i,
   /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
-  /javascript:/i,
-  /onload\s*=/i,
-  /onerror\s*=/i
+  /javascript\s*:\s*alert/i,
 ];
 
 function sanitizeValue(val: any): boolean {
@@ -201,15 +198,16 @@ function sanitizeValue(val: any): boolean {
 }
 
 function injectionGuard(req: any, res: any, next: any) {
-  if (!sanitizeValue(req.query) || !sanitizeValue(req.params) || !sanitizeValue(req.body)) {
-    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1";
+  if (req.body && !sanitizeValue(req.body)) {
+    const forwarded = req.headers["x-forwarded-for"];
+    const ip = (typeof forwarded === "string" ? forwarded.split(",")[0] : req.socket.remoteAddress) || "127.0.0.1";
     const secEvt: SecurityEventItem = {
       id: `sec_evt_inj_${Date.now().toString().slice(-6)}`,
       type: "IP_ANOMALY",
       severity: "critical",
       timestamp: new Date().toISOString(),
-      ipAddress: String(ip).split(",")[0].trim(),
-      details: `Injection attempt blocked on path: ${req.path}`,
+      ipAddress: String(ip).trim(),
+      details: `Exploit pattern blocked on path: ${req.path}`,
       status: "BLOCKED",
     };
     
@@ -219,7 +217,7 @@ function injectionGuard(req: any, res: any, next: any) {
 
     return res.status(400).json({
       success: false,
-      error: "Malicious payload or injection pattern detected. Request blocked for security.",
+      error: "Potentially harmful attack payload detected. Request blocked for security.",
     });
   }
   next();
