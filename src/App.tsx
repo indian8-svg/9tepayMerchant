@@ -351,7 +351,7 @@ export function App() {
           const map = new Map<string, Order>();
           prev.forEach((o) => map.set(o.id, o));
 
-          ordersRes.data.forEach((o: Order) => {
+          (ordersRes.data ?? []).forEach((o: Order) => {
             // Check if existing item matches by ID or orderNumber
             const existingKey = Array.from(map.keys()).find(
               (k) => k === o.id || map.get(k)?.orderNumber === o.orderNumber
@@ -382,7 +382,7 @@ export function App() {
         setBankAccounts((prev) => {
           const map = new Map<string, BankAccountQR>();
           prev.forEach((b) => map.set(b.id, b));
-          banksRes.data.forEach((b: BankAccountQR) => map.set(b.id, b));
+          (banksRes.data ?? []).forEach((b: BankAccountQR) => map.set(b.id, b));
           const merged = Array.from(map.values());
           try { localStorage.setItem('9tepay_bank_accounts', JSON.stringify(merged)); } catch {}
           return merged;
@@ -1044,17 +1044,49 @@ export function App() {
         phone: user.phone || prev.phone,
       }));
 
+      // if (user.vpa) {
+      //   setBankAccounts((prev) => {
+      //     const exists = prev.some((b) => b.vpa.toLowerCase() === user.vpa.toLowerCase());
+      //     if (exists) return prev;
+      //     const newAccount: BankAccountQR = {
+      //       id: `bank_${Math.random().toString(36).substring(2, 7)}`,
+      //       bankName: 'Direct Settlement Bank',
+      //       accountHolder: user.businessName || 'Merchant Account',
+      //       accountNumber: '919000000000',
+      //       ifsc: 'ICIC0000102',
+      //       vpa: user.vpa,
+      //       qrTitle: `${user.businessName} Instant Settlement QR`,
+      //       qrType: 'dynamic_intent',
+      //       qrColor: '#10b981',
+      //       isPrimary: true,
+      //       isActive: true,
+      //       dailyLimit: 500000,
+      //       dailyVolume: 0,
+      //       totalSettled: 0,
+      //       routingWeight: 5,
+      //       createdAt: new Date().toISOString(),
+      //     };
+      //     return [newAccount, ...prev.map((b) => ({ ...b, isPrimary: false }))];
+      //   });
+      // }
+
       if (user.vpa) {
-        setBankAccounts((prev) => {
-          const exists = prev.some((b) => b.vpa.toLowerCase() === user.vpa.toLowerCase());
-          if (exists) return prev;
-          const newAccount: BankAccountQR = {
+    const vpa = user.vpa;
+
+    setBankAccounts((prev) => {
+        const exists = prev.some(
+            (b) => b.vpa.toLowerCase() === vpa.toLowerCase()
+        );
+
+        if (exists) return prev;
+
+        const newAccount: BankAccountQR = {
             id: `bank_${Math.random().toString(36).substring(2, 7)}`,
             bankName: 'Direct Settlement Bank',
             accountHolder: user.businessName || 'Merchant Account',
             accountNumber: '919000000000',
             ifsc: 'ICIC0000102',
-            vpa: user.vpa,
+            vpa: vpa,
             qrTitle: `${user.businessName} Instant Settlement QR`,
             qrType: 'dynamic_intent',
             qrColor: '#10b981',
@@ -1065,10 +1097,14 @@ export function App() {
             totalSettled: 0,
             routingWeight: 5,
             createdAt: new Date().toISOString(),
-          };
-          return [newAccount, ...prev.map((b) => ({ ...b, isPrimary: false }))];
-        });
-      }
+        };
+
+        return [
+            newAccount,
+            ...prev.map((b) => ({ ...b, isPrimary: false }))
+        ];
+    });
+}
     }
 
     try {
