@@ -10,7 +10,7 @@ dotenv.config();
 declare global {
   namespace Express {
     interface Request {
-      user?: {
+      user: {
         id: string;
         name: string;
         email: string;
@@ -501,7 +501,6 @@ const userProfilesMap = new Map<string, typeof merchantProfile>();
 const userBankAccountsMap = new Map<string, BankAccountItem[]>();
 const userPasswordsMap = new Map<string, string>(); // userId -> salt:hash
 
-import crypto from "crypto";
 
 // Admin passcodes supported
 const validAdminPasscodes = new Set(
@@ -1018,43 +1017,100 @@ app.post("/api/orders/:id/cancel", (req, res) => {
 });
 
 // --- Bank Accounts & QR Codes Management ---
-app.get(["/api/merchant/bank-accounts", "/api/bank-accounts", "/api/bank_update.php"], requireAuth, (req, res) => {
-  res.json(getBankAccountsForUser(req.user.id));
-});
+// app.get(["/api/merchant/bank-accounts", "/api/bank-accounts", "/api/bank_update.php"], requireAuth, (req, res) => {
+//   res.json(getBankAccountsForUser(req.user.id));
+// });
 
-app.post(["/api/merchant/bank-accounts", "/api/bank-accounts", "/api/bank_update.php"], requireAuth, (req, res) => {
-  const { bankName, accountHolder, accountNumber, ifsc, vpa, qrTitle, qrType, qrColor, customQrImage, dailyLimit, routingWeight } = req.body;
+app.get(
+  ["/api/merchant/bank-accounts", "/api/bank-accounts", "/api/bank_update.php"],
+  requireAuth,
+  (req, res) => {
+    const user = req.user;
 
-  if (!bankName || !accountNumber || !ifsc || !vpa) {
-    return res.status(400).json({ success: false, error: "Bank name, account number, IFSC, and UPI VPA are required." });
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+      });
+    }
+
+    res.json(getBankAccountsForUser(user.id));
   }
+);
 
-  const userBanks = getBankAccountsForUser(req.user.id);
-  const userProf = getProfileForUser(req.user.id);
+// app.post(["/api/merchant/bank-accounts", "/api/bank-accounts", "/api/bank_update.php"], requireAuth, (req, res) => {
+//   const { bankName, accountHolder, accountNumber, ifsc, vpa, qrTitle, qrType, qrColor, customQrImage, dailyLimit, routingWeight } = req.body;
 
-  const newBank: BankAccountItem = {
-    id: `bank_${Math.random().toString(36).substring(2, 8)}`,
-    bankName: bankName.trim(),
-    accountHolder: accountHolder?.trim() || userProf.businessName,
-    accountNumber: accountNumber.trim(),
-    ifsc: ifsc.trim().toUpperCase(),
-    vpa: vpa.trim().toLowerCase(),
-    qrTitle: qrTitle?.trim() || `${bankName.trim()} Instant QR`,
-    qrType: qrType || "dynamic_intent",
-    qrColor: qrColor || "#10b981",
-    customQrImage: customQrImage || undefined,
-    isPrimary: userBanks.length === 0,
-    isActive: true,
-    dailyLimit: Number(dailyLimit) || 500000,
-    dailyVolume: 0,
-    totalSettled: 0,
-    routingWeight: Number(routingWeight) || 3,
-    createdAt: new Date().toISOString(),
-  };
+//   if (!bankName || !accountNumber || !ifsc || !vpa) {
+//     return res.status(400).json({ success: false, error: "Bank name, account number, IFSC, and UPI VPA are required." });
+//   }
 
-  userBanks.push(newBank);
-  res.status(201).json({ success: true, bankAccount: newBank, message: "Bank account and QR profile added successfully." });
-});
+//   const userBanks = getBankAccountsForUser(req.user.id);
+//   const userProf = getProfileForUser(req.user.id);
+
+//   const newBank: BankAccountItem = {
+//     id: `bank_${Math.random().toString(36).substring(2, 8)}`,
+//     bankName: bankName.trim(),
+//     accountHolder: accountHolder?.trim() || userProf.businessName,
+//     accountNumber: accountNumber.trim(),
+//     ifsc: ifsc.trim().toUpperCase(),
+//     vpa: vpa.trim().toLowerCase(),
+//     qrTitle: qrTitle?.trim() || `${bankName.trim()} Instant QR`,
+//     qrType: qrType || "dynamic_intent",
+//     qrColor: qrColor || "#10b981",
+//     customQrImage: customQrImage || undefined,
+//     isPrimary: userBanks.length === 0,
+//     isActive: true,
+//     dailyLimit: Number(dailyLimit) || 500000,
+//     dailyVolume: 0,
+//     totalSettled: 0,
+//     routingWeight: Number(routingWeight) || 3,
+//     createdAt: new Date().toISOString(),
+//   };
+
+//   userBanks.push(newBank);
+//   res.status(201).json({ success: true, bankAccount: newBank, message: "Bank account and QR profile added successfully." });
+// });
+
+app.post(
+  ["/api/merchant/bank-accounts", "/api/bank-accounts", "/api/bank_update.php"],
+  requireAuth,
+  (req, res) => {
+    const user = req.user;
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+      });
+    }
+
+    const {
+      bankName,
+      accountHolder,
+      accountNumber,
+      ifsc,
+      vpa,
+      qrTitle,
+      qrType,
+      qrColor,
+      customQrImage,
+      // ...
+    } = req.body;
+
+    if (!bankName || !accountNumber || !ifsc || !vpa) {
+      return res.status(400).json({
+        success: false,
+        error: "Bank name, account number, IFSC, and UPI VPA are required",
+      });
+    }
+
+    const userBanks = getBankAccountsForUser(user.id);
+    const userProf = getProfileForUser(user.id);
+
+    // rest of your code...
+  }
+);
 
 app.put(["/api/merchant/bank-accounts/:id", "/api/bank-accounts/:id"], requireAuth, (req, res) => {
   const { id } = req.params;
